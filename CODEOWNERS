@@ -1,33 +1,15 @@
-# CODEOWNERS for the DataBot repository
+# CODEOWNERS for the DataBot repository (public).
 #
-# DataBot is owned by the Wiz Finance team (the app is part of the Wiz Finance
-# project in the Wiz tenant). Code owners are auto-requested for review on PRs;
-# resource owners below map to the owners set on the corresponding cloud
-# resources / Wiz service-catalog entries (databot-chatbot-eks/gke/aks).
+# Code owners are auto-requested to review PRs and must have write access to
+# this repo. GitHub-side ownership is the wiz-demo demo maintainers team
+# (@wiz-demo/wiz-demo-infra-maintainers), which is the team with write access
+# to this repository.
 #
-# NOTE: replace the team/user handles below with the real GitHub org teams once
-# confirmed (placeholders use the wiz-demo org convention).
+# NOTE: DataBot's "Wiz Finance" ownership is a Wiz-tenant concept — the service
+# catalog entries (databot-chatbot-eks/gke/aks) and the resource-owner tags on
+# the backing cloud resources, configured in wiz-demo-infra — not a GitHub team.
 #
 # Docs: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
-# =============================================================================
-# DEFAULT OWNER — Finance team owns the whole app
-# =============================================================================
-* @wiz-demo/finance
-
-# =============================================================================
-# APPLICATION CODE (Resource Owner: Finance / DataBot maintainers)
-# =============================================================================
-/app.py            @wiz-demo/finance
-/agent.py          @wiz-demo/finance
-/db.py             @wiz-demo/finance
-/templates/        @wiz-demo/finance
-/static/           @wiz-demo/finance
-/sql/              @wiz-demo/finance
-/data/             @wiz-demo/finance
-
-# =============================================================================
-# BUILD, IMAGES & CI — platform/security review required
-# =============================================================================
-/docker/           @wiz-demo/finance @wiz-demo/platform
-/.github/          @wiz-demo/platform
+# Default owner for everything in the repo
+* @wiz-demo/wiz-demo-infra-maintainers
