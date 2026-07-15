@@ -130,10 +130,8 @@ jobs:
             ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ env.DEPLOY_ENV }}
             ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ env.DEPLOY_ENV }}-${{ github.sha }}
             ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}:latest
-        continue-on-error: true
 
       - name: Install Wiz CLI
-        if: success() || failure()
         run: |
           mkdir -p ~/.wiz
           EXPECTED_SHA256="${{ steps.get-sha256.outputs.sha256 }}"
@@ -154,7 +152,6 @@ jobs:
           echo "WIZCLI_PATH=$HOME/.wiz/wizcli" >> $GITHUB_ENV
 
       - name: Run Wiz Security Scan (Code-to-Cloud mapping)
-        if: success() || failure()
         run: |
           sudo -E ${{ env.WIZCLI_PATH }} scan container-image "${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}:latest" \
             --dockerfile "./docker/${{ matrix.dockerfile }}/Dockerfile" \
@@ -167,14 +164,12 @@ jobs:
         continue-on-error: true
 
       - name: Push Docker Image
-        if: success() || failure()
         run: |
           docker push "${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ env.DEPLOY_ENV }}"
           docker push "${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ env.DEPLOY_ENV }}-${{ github.sha }}"
           docker push "${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}:latest"
 
       - name: Tag Image in Wiz
-        if: success() || failure()
         run: |
           sudo -E ${{ env.WIZCLI_PATH }} tag "${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}:latest"
         continue-on-error: true
@@ -195,7 +190,6 @@ jobs:
         continue-on-error: true
 
       - name: Image Summary
-        if: success() || failure()
         run: |
           echo "### ${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }} built, scanned and pushed" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
