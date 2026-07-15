@@ -18,7 +18,7 @@ services:
   databot:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: docker/debian/Dockerfile
     ports:
       - "127.0.0.1:9103:80"
     environment:

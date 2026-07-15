@@ -29,6 +29,5 @@
 # =============================================================================
 # BUILD, IMAGES & CI — platform/security review required
 # =============================================================================
-/Dockerfile        @wiz-demo/finance @wiz-demo/platform
-/Dockerfile.wizos  @wiz-demo/finance @wiz-demo/platform
+/docker/           @wiz-demo/finance @wiz-demo/platform
 /.github/          @wiz-demo/platform

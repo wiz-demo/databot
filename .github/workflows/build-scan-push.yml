@@ -6,9 +6,8 @@ on:
     branches:
       - main
       - staging
+      - develop
     paths:
-      - Dockerfile
-      - Dockerfile.wizos
       - app.py
       - agent.py
       - db.py
@@ -17,7 +16,8 @@ on:
       - static/**
       - sql/**
       - data/**
-      - .github/workflows/build-push.yml
+      - docker/**
+      - .github/workflows/build-scan-push.yml
 
 permissions:
   id-token: write
@@ -26,8 +26,15 @@ permissions:
   security-events: write
 
 env:
-  DEPLOY_ENV: ${{ (github.ref == 'refs/heads/main') && 'production' || 'staging' }}
+  # Branch -> demo environment. 1Password items are keyed on this (gar_<env>-registry,
+  # tenant_<env>-wizcli-sa, tenant_<env>-tenant-info, tenant_<env>-wizos-apk-credentials).
+  DEPLOY_ENV: ${{
+    (github.ref == 'refs/heads/main' && 'advanced') ||
+    (github.ref == 'refs/heads/develop' && 'stgadvanced') ||
+    (github.ref == 'refs/heads/staging' && 'stgadvanced') ||
+    'test' }}
   WIZ_ENV: "demo"
+  IMAGE_NAME: "${{ github.event.repository.name }}"
 
 jobs:
   build-and-scan:
@@ -35,15 +42,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          # Standard (Debian slim) image and its Dockerfile → C2C mapping.
-          - variant: standard
-            image_name: databot
-            dockerfile: ./Dockerfile
-          # Hardened WizOS image and its Dockerfile → C2C mapping.
-          - variant: wizos
-            image_name: databot-wizos
-            dockerfile: ./Dockerfile.wizos
+        # Standard (Debian) and hardened (WizOS) variants. The image name and its
+        # Dockerfile path are both derived from this value:
+        #   image: <registry>/<repo>-<dockerfile>   (databot-debian / databot-wizos)
+        #   file:  ./docker/<dockerfile>/Dockerfile
+        dockerfile: [debian, wizos]
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
@@ -67,15 +70,16 @@ jobs:
           WIZCLI_URL: op://wiz-demo/tenant_${{ env.DEPLOY_ENV }}-wizcli-sa/wizcliUrl
 
       - name: Load WizOS Registry Secrets
-        if: matrix.variant == 'wizos'
+        if: matrix.dockerfile == 'wizos'
         uses: 1password/load-secrets-action@dafbe7cb03502b260e2b2893c753c352eee545bf # ratchet:1password/load-secrets-action@v3.2.1
         with:
           export-env: true
         env:
-          # WizOS pull credentials (create this item once WizOS is enabled on the tenant).
-          WIZOS_REGISTRY: op://wiz-demo/wizos-registry/registryUrl
-          WIZOS_USERNAME: op://wiz-demo/wizos-registry/username
-          WIZOS_PASSWORD: op://wiz-demo/wizos-registry/password
+          WIZ_OS_REGISTRY: op://wiz-demo/tenant_${{ env.DEPLOY_ENV }}-tenant-info/wizOsRegistryUrl
+          WIZ_OS_USER: op://wiz-demo/tenant_${{ env.DEPLOY_ENV }}-tenant-info/wizOsRegistryUsername
+          WIZ_OS_PASSWORD: op://wiz-demo/tenant_${{ env.DEPLOY_ENV }}-tenant-info/wizOsRegistryPassword
+          WIZ_OS_CLIENT_ID: op://wiz-demo/tenant_${{ env.DEPLOY_ENV }}-wizos-apk-credentials/username
+          WIZ_OS_CLIENT_SECRET: op://wiz-demo/tenant_${{ env.DEPLOY_ENV }}-wizos-apk-credentials/credential
 
       - name: Get Wiz CLI SHA256
         id: get-sha256
@@ -103,28 +107,29 @@ jobs:
         run: gcloud auth configure-docker ${{ env.REGISTRY_REGION }}-docker.pkg.dev
 
       - name: Login to WizOS Registry
-        if: matrix.variant == 'wizos'
+        if: matrix.dockerfile == 'wizos'
         run: |
-          echo "$WIZOS_PASSWORD" | docker login "${WIZOS_REGISTRY:-registry.os.wiz.io}" \
-            --username "$WIZOS_USERNAME" --password-stdin
+          echo "$WIZ_OS_PASSWORD" | docker login "${WIZ_OS_REGISTRY:-registry.os.wiz.io}" \
+            --username "$WIZ_OS_USER" --password-stdin
+        continue-on-error: true
 
       - name: Build Docker Image (Local Only)
         id: build-image
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # ratchet:docker/build-push-action@v6
         with:
           cache-from: |
-            type=gha,scope=${{ matrix.image_name }}-${{ env.DEPLOY_ENV }}
-            type=gha,scope=${{ matrix.image_name }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.image_name }}-${{ env.DEPLOY_ENV }}
+            type=gha,scope=${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}-${{ env.DEPLOY_ENV }}
+            type=gha,scope=${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}
+          cache-to: type=gha,mode=max,scope=${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}-${{ env.DEPLOY_ENV }}
           context: ./
-          file: ${{ matrix.dockerfile }}
+          file: ./docker/${{ matrix.dockerfile }}/Dockerfile
           platforms: linux/amd64
           load: true
           push: false
           tags: |
-            ${{ env.IMAGE_REGISTRY }}/${{ matrix.image_name }}:${{ env.DEPLOY_ENV }}
-            ${{ env.IMAGE_REGISTRY }}/${{ matrix.image_name }}:${{ env.DEPLOY_ENV }}-${{ github.sha }}
-            ${{ env.IMAGE_REGISTRY }}/${{ matrix.image_name }}:latest
+            ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ env.DEPLOY_ENV }}
+            ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ env.DEPLOY_ENV }}-${{ github.sha }}
+            ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}:latest
         continue-on-error: true
 
       - name: Install Wiz CLI
@@ -151,50 +156,50 @@ jobs:
       - name: Run Wiz Security Scan (Code-to-Cloud mapping)
         if: success() || failure()
         run: |
-          sudo -E ${{ env.WIZCLI_PATH }} scan container-image "${{ env.IMAGE_REGISTRY }}/${{ matrix.image_name }}:latest" \
-            --dockerfile "${{ matrix.dockerfile }}" \
+          sudo -E ${{ env.WIZCLI_PATH }} scan container-image "${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}:latest" \
+            --dockerfile "./docker/${{ matrix.dockerfile }}/Dockerfile" \
             --tag github_action_run_id=${{ github.run_id }} \
-            --tag dockerfile=${{ matrix.variant }} \
+            --tag dockerfile=${{ matrix.dockerfile }} \
             --tag environment=${{ env.DEPLOY_ENV }} \
-            --sarif-output-file "${{ matrix.image_name }}-${{ github.run_id }}-sarif.json" \
+            --sarif-output-file "${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}-${{ github.run_id }}-sarif.json" \
             --sbom-format spdx-json \
-            --sbom-output-file "${{ matrix.image_name }}-${{ github.run_id }}-sbom.json"
+            --sbom-output-file "${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}-${{ github.run_id }}-sbom.json"
         continue-on-error: true
 
       - name: Push Docker Image
         if: success() || failure()
         run: |
-          docker push "${{ env.IMAGE_REGISTRY }}/${{ matrix.image_name }}:${{ env.DEPLOY_ENV }}"
-          docker push "${{ env.IMAGE_REGISTRY }}/${{ matrix.image_name }}:${{ env.DEPLOY_ENV }}-${{ github.sha }}"
-          docker push "${{ env.IMAGE_REGISTRY }}/${{ matrix.image_name }}:latest"
+          docker push "${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ env.DEPLOY_ENV }}"
+          docker push "${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ env.DEPLOY_ENV }}-${{ github.sha }}"
+          docker push "${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}:latest"
 
       - name: Tag Image in Wiz
         if: success() || failure()
         run: |
-          sudo -E ${{ env.WIZCLI_PATH }} tag "${{ env.IMAGE_REGISTRY }}/${{ matrix.image_name }}:latest"
+          sudo -E ${{ env.WIZCLI_PATH }} tag "${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}:latest"
         continue-on-error: true
 
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@5e7a52feb2a3dfb87f88be2af33b9e2275f48de6 # ratchet:github/codeql-action/upload-sarif@codeql-bundle-v2.24.2
         with:
-          sarif_file: ${{ matrix.image_name }}-${{ github.run_id }}-sarif.json
-          category: wiz-${{ matrix.variant }}
+          sarif_file: ${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}-${{ github.run_id }}-sarif.json
+          category: wiz-${{ matrix.dockerfile }}
         continue-on-error: true
 
       - name: Upload SBOM file
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # ratchet:actions/upload-artifact@v7.0.0
         with:
-          name: sbom-${{ matrix.image_name }}-${{ github.run_id }}
-          path: ${{ matrix.image_name }}-${{ github.run_id }}-sbom.json
+          name: sbom-${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}-${{ github.run_id }}
+          path: ${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}-${{ github.run_id }}-sbom.json
           retention-days: 30
         continue-on-error: true
 
       - name: Image Summary
         if: success() || failure()
         run: |
-          echo "### 🎉 ${{ matrix.image_name }} built, scanned and pushed" >> $GITHUB_STEP_SUMMARY
+          echo "### ${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }} built, scanned and pushed" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Variant:** ${{ matrix.variant }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Dockerfile:** ${{ matrix.dockerfile }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Variant:** ${{ matrix.dockerfile }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Dockerfile:** ./docker/${{ matrix.dockerfile }}/Dockerfile" >> $GITHUB_STEP_SUMMARY
           echo "**Environment:** ${{ env.DEPLOY_ENV }}" >> $GITHUB_STEP_SUMMARY
           echo "**Registry:** ${{ env.IMAGE_REGISTRY }}" >> $GITHUB_STEP_SUMMARY

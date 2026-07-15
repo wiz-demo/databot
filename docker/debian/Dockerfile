@@ -1,6 +1,7 @@
 # Standard DataBot image (Debian-based python:slim).
-# Paired with Dockerfile.wizos to demonstrate the CVE/attack-surface delta
-# between a stock base image and a hardened WizOS base image.
+# Paired with docker/wizos/Dockerfile to demonstrate the CVE/attack-surface
+# delta between a stock base image and a hardened WizOS base image.
+# Build context is the repo root (docker build -f docker/debian/Dockerfile .).
 FROM python:3.13-slim
 
 WORKDIR /app

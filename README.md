@@ -35,10 +35,11 @@ running workload** (Code-to-Cloud correlation):
 
 | Image | Dockerfile | Base |
 |-------|-----------|------|
-| `databot` | `Dockerfile` | `python:3.13-slim` (standard) |
-| `databot-wizos` | `Dockerfile.wizos` | WizOS hardened base (`registry.os.wiz.io`) |
+| `databot-debian` | `docker/debian/Dockerfile` | `python:3.13-slim` (standard) |
+| `databot-wizos` | `docker/wizos/Dockerfile` | WizOS hardened base (`registry.os.wiz.io`) |
 
-CI (`.github/workflows/build-push.yml`) builds both variants, runs a Wiz CLI
+CI (`.github/workflows/build-scan-push.yml`) builds both variants via a
+`dockerfile: [debian, wizos]` matrix (image `databot-<variant>`), runs a Wiz CLI
 scan (`--dockerfile`, SARIF + SBOM), pushes to GAR, and tags the images in Wiz.
 
 ## Green-agent remediation
@@ -50,8 +51,8 @@ resolution flow visible to partners/external tenants.
 
 ## Branches
 
-- `main` → production images (`gar_production-registry`)
-- `staging` → staging images (`gar_staging-registry`)
+- `main` → `advanced` demo env (`gar_advanced-registry`)
+- `staging` / `develop` → `stgadvanced` demo env (`gar_stgadvanced-registry`)
 
 Feature branches merge into `staging`, then `staging` promotes to `main`.
 
@@ -73,9 +74,10 @@ databot/
 ├── app.py / agent.py / db.py     # Flask app + provider-switchable agent + DB layer
 ├── requirements.txt
 ├── templates/ static/            # Chat UI
-├── sql/init.sql  data/           # Sensitive-data seed (local compose + k8s ConfigMap)
-├── Dockerfile  Dockerfile.wizos  # Standard + WizOS images
+├── sql/init.sql  data/           # Sensitive-data seed (local compose; managed DB in wiz-demo-infra)
+├── docker/debian/Dockerfile      # Standard (python:3.13-slim) image
+├── docker/wizos/Dockerfile       # Hardened WizOS image
 ├── docker-compose.yml            # Local dev (app + Postgres)
 ├── CODEOWNERS
-└── .github/workflows/            # build-push.yml, claude.yml
+└── .github/workflows/            # build-scan-push.yml, claude.yml
 ```
