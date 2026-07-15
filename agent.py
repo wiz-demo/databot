@@ -5,8 +5,9 @@ import tempfile
 
 from db import execute_query, get_tables
 
-# DataBot supports multiple cloud LLM backends selected at runtime via the
-# AI_PROVIDER env var. GCP/Vertex is the primary (default) provider; AWS/Bedrock
+# DataBot supports multiple cloud LLM backends selected once at container
+# startup (AI_PROVIDER is read at import time, not per-request). GCP/Vertex is
+# the primary (default) provider; AWS/Bedrock
 # is fully supported; Azure is a net-new backend and is intentionally stubbed
 # until its libraries/model access are in place (tracked as a follow-up).
 AI_PROVIDER = os.environ.get("AI_PROVIDER", "vertex").lower()

@@ -111,7 +111,6 @@ jobs:
         run: |
           echo "$WIZ_OS_PASSWORD" | docker login "${WIZ_OS_REGISTRY:-registry.os.wiz.io}" \
             --username "$WIZ_OS_USER" --password-stdin
-        continue-on-error: true
 
       - name: Build Docker Image (Local Only)
         id: build-image
@@ -148,6 +147,11 @@ jobs:
           fi
           if [ "$NEEDS_DOWNLOAD" = true ]; then
             curl -o ~/.wiz/wizcli ${{ env.WIZCLI_URL }} && chmod +x ~/.wiz/wizcli
+            DOWNLOADED_SHA256=$(sha256sum ~/.wiz/wizcli | cut -d' ' -f1)
+            if [ "$DOWNLOADED_SHA256" != "$EXPECTED_SHA256" ]; then
+              echo "::error::Wiz CLI SHA256 mismatch (expected $EXPECTED_SHA256, got $DOWNLOADED_SHA256)"
+              exit 1
+            fi
           fi
           echo "WIZCLI_PATH=$HOME/.wiz/wizcli" >> $GITHUB_ENV
 
