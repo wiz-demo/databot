@@ -112,7 +112,10 @@ def execute_tool():
         return jsonify({"error": tool.get("error", "Tool is disabled")}), 403
 
     if tool_name == "post_chat_message":
-        response_text = run_agent(prompt)
+        try:
+            response_text = run_agent(prompt)
+        except Exception as e:
+            return jsonify({"error": str(e), "status": "error"}), 500
         return jsonify({"response": response_text, "status": "success"})
 
     return jsonify({"error": "Tool execution failed"}), 500

@@ -21,7 +21,10 @@ def execute_query(sql: str) -> str:
     Intentionally has NO input validation -- security demo vulnerability.
     """
     config = _get_config()
-    conn = psycopg2.connect(**config)
+    try:
+        conn = psycopg2.connect(**config)
+    except Exception as e:
+        return json.dumps({"error": str(e)})
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(sql)
@@ -41,7 +44,10 @@ def execute_query(sql: str) -> str:
 def get_tables() -> str:
     """Return all user tables and their columns as JSON."""
     config = _get_config()
-    conn = psycopg2.connect(**config)
+    try:
+        conn = psycopg2.connect(**config)
+    except Exception as e:
+        return json.dumps({"error": str(e)})
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
