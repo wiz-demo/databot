@@ -24,4 +24,10 @@ COPY data/ ./data/
 
 EXPOSE 80
 
+# The WizOS python base sets ENTRYPOINT ["python3"], which would turn the CMD
+# below into `python3 gunicorn ...` (python3 then tries to open a file named
+# "gunicorn"). Reset it so the gunicorn console script runs directly, matching
+# the Debian image's behavior.
+ENTRYPOINT []
+
 CMD ["gunicorn", "--bind", "0.0.0.0:80", "--workers", "2", "--timeout", "120", "app:app"]
