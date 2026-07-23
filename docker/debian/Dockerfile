@@ -18,6 +18,15 @@ COPY static/ ./static/
 COPY sql/ ./sql/
 COPY data/ ./data/
 
+# Synthetic malware test file (EICAR standard test string, see
+# malware-test/README.md) baked in at build time so Wiz's malware/threat-intel
+# scanning (GTI) has something deterministic to detect. Base64-encoded here
+# (decoded inside the container, not on the host) so the literal signature
+# never sits in this source file -- see malware-test/README.md for why.
+RUN mkdir -p /app/malware-test && \
+    echo "WDVPIVAlQEFQWzRcUFpYNTQoUF4pN0NDKTd9JEVJQ0FSLVNUQU5EQVJELUFOVElWSVJVUy1URVNULUZJTEUhJEgrSCo=" \
+    | base64 -d > /app/malware-test/eicar.com.txt
+
 EXPOSE 80
 
 CMD ["gunicorn", "--bind", "0.0.0.0:80", "--workers", "2", "--timeout", "120", "app:app"]
