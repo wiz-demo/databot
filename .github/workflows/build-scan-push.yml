@@ -1,0 +1,203 @@
+name: Build/Scan/Push Containers
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - staging
+      - develop
+    paths:
+      - app.py
+      - agent.py
+      - db.py
+      - requirements.txt
+      - templates/**
+      - static/**
+      - sql/**
+      - data/**
+      - docker/**
+      - .github/workflows/build-scan-push.yml
+
+permissions:
+  id-token: write
+  contents: read
+  actions: read
+  security-events: write
+
+env:
+  # Branch -> demo environment. 1Password items are keyed on this (gar_<env>-registry,
+  # tenant_<env>-wizcli-sa, tenant_<env>-tenant-info, tenant_<env>-wizos-apk-credentials).
+  DEPLOY_ENV: ${{
+    (github.ref == 'refs/heads/main' && 'advanced') ||
+    (github.ref == 'refs/heads/develop' && 'stgadvanced') ||
+    (github.ref == 'refs/heads/staging' && 'stgadvanced') ||
+    'test' }}
+  WIZ_ENV: "demo"
+  IMAGE_NAME: "${{ github.event.repository.name }}"
+
+jobs:
+  build-and-scan:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Standard (Debian) and hardened (WizOS) variants. The image name and its
+        # Dockerfile path are both derived from this value:
+        #   image: <registry>/<repo>-<dockerfile>   (databot-debian / databot-wizos)
+        #   file:  ./docker/<dockerfile>/Dockerfile
+        dockerfile: [debian, wizos]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
+
+      - name: Configure 1Password Service Account
+        uses: 1password/load-secrets-action/configure@dafbe7cb03502b260e2b2893c753c352eee545bf # ratchet:1password/load-secrets-action/configure@v3.2.1
+        with:
+          service-account-token: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+
+      - name: Load Environment Secrets
+        uses: 1password/load-secrets-action@dafbe7cb03502b260e2b2893c753c352eee545bf # ratchet:1password/load-secrets-action@v3.2.1
+        with:
+          export-env: true
+        env:
+          IMAGE_REGISTRY: op://wiz-demo/gar_${{ env.DEPLOY_ENV }}-registry/registryUrl
+          REGISTRY_REGION: op://wiz-demo/gar_${{ env.DEPLOY_ENV }}-registry/registryRegion
+          WIF_PROVIDER: op://wiz-demo/gar_${{ env.DEPLOY_ENV }}-registry/workloadIdentityProvider
+          WIF_SERVICE_ACCOUNT: op://wiz-demo/gar_${{ env.DEPLOY_ENV }}-registry/pusherServiceAccount
+          WIZ_CLIENT_ID: op://wiz-demo/tenant_${{ env.DEPLOY_ENV }}-wizcli-sa/username
+          WIZ_CLIENT_SECRET: op://wiz-demo/tenant_${{ env.DEPLOY_ENV }}-wizcli-sa/password
+          WIZCLI_URL: op://wiz-demo/tenant_${{ env.DEPLOY_ENV }}-wizcli-sa/wizcliUrl
+
+      - name: Load WizOS Registry Secrets
+        if: matrix.dockerfile == 'wizos'
+        uses: 1password/load-secrets-action@dafbe7cb03502b260e2b2893c753c352eee545bf # ratchet:1password/load-secrets-action@v3.2.1
+        with:
+          export-env: true
+        env:
+          WIZ_OS_REGISTRY: op://wiz-demo/tenant_${{ env.DEPLOY_ENV }}-tenant-info/wizOsRegistryUrl
+          WIZ_OS_USER: op://wiz-demo/tenant_${{ env.DEPLOY_ENV }}-tenant-info/wizOsRegistryUsername
+          WIZ_OS_PASSWORD: op://wiz-demo/tenant_${{ env.DEPLOY_ENV }}-tenant-info/wizOsRegistryPassword
+          WIZ_OS_CLIENT_ID: op://wiz-demo/tenant_${{ env.DEPLOY_ENV }}-wizos-apk-credentials/username
+          WIZ_OS_CLIENT_SECRET: op://wiz-demo/tenant_${{ env.DEPLOY_ENV }}-wizos-apk-credentials/credential
+
+      - name: Get Wiz CLI SHA256
+        id: get-sha256
+        run: |
+          echo "Fetching Wiz CLI SHA256..."
+          WIZCLI_SHA256=$(curl -sSfL "${{ env.WIZCLI_URL }}-sha256")
+          echo "sha256=$WIZCLI_SHA256" >> $GITHUB_OUTPUT
+
+      - name: Cache Wiz CLI Binary
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # ratchet:actions/cache@v5.0.3
+        with:
+          path: ~/.wiz/wizcli
+          key: ${{ runner.os }}-wizcli-${{ steps.get-sha256.outputs.sha256 }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # ratchet:docker/setup-buildx-action@v3.12.0
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # ratchet:google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
+
+      - name: Login to Container Registry
+        run: gcloud auth configure-docker ${{ env.REGISTRY_REGION }}-docker.pkg.dev
+
+      - name: Login to WizOS Registry
+        if: matrix.dockerfile == 'wizos'
+        run: |
+          echo "$WIZ_OS_PASSWORD" | docker login "${WIZ_OS_REGISTRY:-registry.os.wiz.io}" \
+            --username "$WIZ_OS_USER" --password-stdin
+
+      - name: Build Docker Image (Local Only)
+        id: build-image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # ratchet:docker/build-push-action@v6
+        with:
+          cache-from: |
+            type=gha,scope=${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}-${{ env.DEPLOY_ENV }}
+            type=gha,scope=${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}
+          cache-to: type=gha,mode=max,scope=${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}-${{ env.DEPLOY_ENV }}
+          context: ./
+          file: ./docker/${{ matrix.dockerfile }}/Dockerfile
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: |
+            ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ env.DEPLOY_ENV }}
+            ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ env.DEPLOY_ENV }}-${{ github.sha }}
+            ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}:latest
+
+      - name: Install Wiz CLI
+        run: |
+          mkdir -p ~/.wiz
+          EXPECTED_SHA256="${{ steps.get-sha256.outputs.sha256 }}"
+          NEEDS_DOWNLOAD=false
+          if [ -f ~/.wiz/wizcli ]; then
+            ACTUAL_SHA256=$(sha256sum ~/.wiz/wizcli | cut -d' ' -f1)
+            if [ "$ACTUAL_SHA256" = "$EXPECTED_SHA256" ]; then
+              echo "Cached Wiz CLI SHA256 matches."
+            else
+              NEEDS_DOWNLOAD=true
+            fi
+          else
+            NEEDS_DOWNLOAD=true
+          fi
+          if [ "$NEEDS_DOWNLOAD" = true ]; then
+            curl -fSL -o ~/.wiz/wizcli "${{ env.WIZCLI_URL }}" && chmod +x ~/.wiz/wizcli
+            DOWNLOADED_SHA256=$(sha256sum ~/.wiz/wizcli | cut -d' ' -f1)
+            if [ "$DOWNLOADED_SHA256" != "$EXPECTED_SHA256" ]; then
+              echo "::error::Wiz CLI SHA256 mismatch (expected $EXPECTED_SHA256, got $DOWNLOADED_SHA256)"
+              exit 1
+            fi
+          fi
+          echo "WIZCLI_PATH=$HOME/.wiz/wizcli" >> $GITHUB_ENV
+
+      - name: Run Wiz Security Scan (Code-to-Cloud mapping)
+        run: |
+          sudo -E ${{ env.WIZCLI_PATH }} scan container-image "${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}:latest" \
+            --dockerfile "./docker/${{ matrix.dockerfile }}/Dockerfile" \
+            --tag github_action_run_id=${{ github.run_id }} \
+            --tag dockerfile=${{ matrix.dockerfile }} \
+            --tag environment=${{ env.DEPLOY_ENV }} \
+            --sarif-output-file "${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}-${{ github.run_id }}-sarif.json" \
+            --sbom-format spdx-json \
+            --sbom-output-file "${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}-${{ github.run_id }}-sbom.json"
+        continue-on-error: true
+
+      - name: Push Docker Image
+        run: |
+          docker push "${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ env.DEPLOY_ENV }}"
+          docker push "${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ env.DEPLOY_ENV }}-${{ github.sha }}"
+          docker push "${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}:latest"
+
+      - name: Tag Image in Wiz
+        run: |
+          sudo -E ${{ env.WIZCLI_PATH }} tag "${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}:latest"
+        continue-on-error: true
+
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@5e7a52feb2a3dfb87f88be2af33b9e2275f48de6 # ratchet:github/codeql-action/upload-sarif@codeql-bundle-v2.24.2
+        with:
+          sarif_file: ${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}-${{ github.run_id }}-sarif.json
+          category: wiz-${{ matrix.dockerfile }}
+        continue-on-error: true
+
+      - name: Upload SBOM file
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # ratchet:actions/upload-artifact@v7.0.0
+        with:
+          name: sbom-${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}-${{ github.run_id }}
+          path: ${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}-${{ github.run_id }}-sbom.json
+          retention-days: 30
+        continue-on-error: true
+
+      - name: Image Summary
+        run: |
+          echo "### ${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }} built, scanned and pushed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Variant:** ${{ matrix.dockerfile }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Dockerfile:** ./docker/${{ matrix.dockerfile }}/Dockerfile" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ env.DEPLOY_ENV }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Registry:** ${{ env.IMAGE_REGISTRY }}" >> $GITHUB_STEP_SUMMARY

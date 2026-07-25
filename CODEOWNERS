@@ -1,0 +1,15 @@
+# CODEOWNERS for the DataBot repository (public).
+#
+# Code owners are auto-requested to review PRs and must have write access to
+# this repo. GitHub-side ownership is the wiz-demo demo maintainers team
+# (@wiz-demo/wiz-demo-infra-maintainers), which is the team with write access
+# to this repository.
+#
+# NOTE: DataBot's "Wiz Finance" ownership is a Wiz-tenant concept — the service
+# catalog entries (databot-chatbot-eks/gke/aks) and the resource-owner tags on
+# the backing cloud resources, configured in wiz-demo-infra — not a GitHub team.
+#
+# Docs: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything in the repo
+* @wiz-demo/wiz-demo-infra-maintainers
