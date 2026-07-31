@@ -17,12 +17,15 @@ COPY templates/ ./templates/
 COPY static/ ./static/
 COPY sql/ ./sql/
 COPY data/ ./data/
+COPY malware-test/gti-sample.zip /tmp/gti-sample.zip
 
-# EICAR test file for GTI malware scanning demo; base64'd so the raw
-# signature isn't in this source file (see malware-test/README.md).
-RUN mkdir -p /app/malware-test && \
-    echo "WDVPIVAlQEFQWzRcUFpYNTQoUF4pN0NDKTd9JEVJQ0FSLVNUQU5EQVJELUFOVElWSVJVUy1URVNULUZJTEUhJEgrSCo=" \
-    | base64 -d > /app/malware-test/eicar.com.txt
+# GTI malware sample (SHOW-863): extract password-protected zip at build time
+# inside the container — never unzip on the host (local AV quarantines it).
+RUN apt-get update && apt-get install -y --no-install-recommends unzip \
+    && mkdir -p /app/malware-test \
+    && unzip -P infected -o -q /tmp/gti-sample.zip -d /app/malware-test \
+    && rm -f /tmp/gti-sample.zip \
+    && apt-get purge -y unzip && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 
 EXPOSE 80
 
