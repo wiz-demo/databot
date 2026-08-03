@@ -1,3 +1,4 @@
+import os
 from flask import Flask, request, jsonify, render_template
 
 from agent import run_agent
@@ -44,9 +45,18 @@ TOOLS = {
 
 
 def check_auth():
-    """Accepts ANY Bearer token -- intentional vulnerability."""
+    """Validate the Bearer token against the configured API secret."""
     auth_header = request.headers.get("Authorization", "")
-    return auth_header.startswith("Bearer ")
+    if not auth_header.startswith("Bearer "):
+        return False
+    token = auth_header[len("Bearer "):]
+    expected_token = os.environ.get("API_BEARER_TOKEN", "")
+    if not expected_token:
+        # Fail closed: if no token is configured, deny all requests
+        return False
+    # Constant-time comparison to prevent timing attacks
+    import hmac
+    return hmac.compare_digest(token, expected_token)
 
 
 # --- Routes ---
