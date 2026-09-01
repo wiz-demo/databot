@@ -1,3 +1,6 @@
+import hmac
+import os
+
 from flask import Flask, request, jsonify, render_template
 
 from agent import run_agent
@@ -43,10 +46,20 @@ TOOLS = {
 }
 
 
+_VALID_API_TOKEN = os.environ.get("DATABOT_API_TOKEN", "")
+
+
 def check_auth():
-    """Accepts ANY Bearer token -- intentional vulnerability."""
+    """Validate the Bearer token against the configured API token."""
+    if not _VALID_API_TOKEN:
+        # No token configured — deny all requests to prevent open access.
+        return False
     auth_header = request.headers.get("Authorization", "")
-    return auth_header.startswith("Bearer ")
+    if not auth_header.startswith("Bearer "):
+        return False
+    provided_token = auth_header[len("Bearer "):]
+    # Constant-time comparison to prevent timing side-channel attacks.
+    return hmac.compare_digest(provided_token, _VALID_API_TOKEN)
 
 
 # --- Routes ---
