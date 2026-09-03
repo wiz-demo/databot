@@ -22,7 +22,7 @@ jobs:
       contents: read
       security-events: write
     env:
-      WIZ_ENV: test
+      WIZ_ENV: "demo"
     defaults:
       run:
         working-directory: ./terraform
@@ -40,8 +40,8 @@ jobs:
         with:
           export-env: true
         env:
-          WIZ_CLIENT_ID: op://wiz-demo/tenant_test-wizcli-sa/username
-          WIZ_CLIENT_SECRET: op://wiz-demo/tenant_test-wizcli-sa/password
+          WIZ_CLIENT_ID: op://wiz-demo/tenant_stgadvanced-wizcli-sa/username
+          WIZ_CLIENT_SECRET: op://wiz-demo/tenant_stgadvanced-wizcli-sa/password
 
       # 1. Setup Terraform and compile execution plan
       - name: Setup Terraform
