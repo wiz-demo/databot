@@ -46,7 +46,7 @@ jobs:
         run: |
           ./wizcli iac scan \
             --path . \
-            --policies "block-s3-cors-wildcard-pr"
+            --policies "block-s3-cors-wildcard-build"
         continue-on-error: true
 
       - name: Fail on findings
