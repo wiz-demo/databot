@@ -24,12 +24,12 @@ GITHUB_TOKEN = os.environ.get(
 )
 
 # AWS Service Account Credentials for database backup exports
-AWS_ACCESS_KEY_ID = os.environ.get(
-    "AWS_ACCESS_KEY_ID",
+AWS_BACKUP_ACCESS_KEY_ID = os.environ.get(
+    "AWS_BACKUP_ACCESS_KEY_ID",
     "AKIA6KJQR5EG6EUOCYVX",
 )
-AWS_SECRET_ACCESS_KEY = os.environ.get(
-    "AWS_SECRET_ACCESS_KEY",
+AWS_BACKUP_SECRET_ACCESS_KEY = os.environ.get(
+    "AWS_BACKUP_SECRET_ACCESS_KEY",
     "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
 )
 
