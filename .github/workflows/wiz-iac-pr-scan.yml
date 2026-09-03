@@ -1,0 +1,61 @@
+name: Wiz CI/CD IaC Scan
+
+on:
+  pull_request:
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/wiz-iac-*.yml'
+  workflow_dispatch:
+
+jobs:
+  wiz-iac-scan:
+    name: Wiz CI/CD IaC Security Scan
+    environment: dev
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    env:
+      WIZ_ENV: test
+      WIZ_CLIENT_ID: ${{ secrets.WIZ_CLIENT_ID }}
+      WIZ_CLIENT_SECRET: ${{ secrets.WIZ_CLIENT_SECRET }}
+    defaults:
+      run:
+        working-directory: ./terraform
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6
+
+      - name: Configure 1Password Service Account
+        if: env.WIZ_CLIENT_ID == '' && secrets.OP_SERVICE_ACCOUNT_TOKEN != ''
+        uses: 1password/load-secrets-action/configure@dafbe7cb03502b260e2b2893c753c352eee545bf # ratchet:1password/load-secrets-action/configure@v3.2.1
+        with:
+          service-account-token: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+
+      - name: Load Environment Secrets
+        if: env.WIZ_CLIENT_ID == '' && secrets.OP_SERVICE_ACCOUNT_TOKEN != ''
+        uses: 1password/load-secrets-action@dafbe7cb03502b260e2b2893c753c352eee545bf # ratchet:1password/load-secrets-action@v3.2.1
+        with:
+          export-env: true
+        env:
+          WIZ_CLIENT_ID: op://wiz-demo/tenant_test-wizcli-sa/username
+          WIZ_CLIENT_SECRET: op://wiz-demo/tenant_test-wizcli-sa/password
+
+      - name: Download Wiz CLI
+        run: |
+          curl -Lo wizcli https://downloads.wiz.io/v1/wizcli/latest/wizcli-linux-amd64
+          chmod +x wizcli
+
+      - name: Run Wiz IaC scan
+        id: scan
+        run: |
+          ./wizcli iac scan \
+            --path . \
+            --policies "block-s3-cors-wildcard-pr"
+        continue-on-error: true
+
+      - name: Fail on findings
+        if: steps.scan.outcome == 'failure'
+        run: |
+          echo "❌ Wiz IaC scan found misconfigurations matching policy 'block-s3-cors-wildcard-pr'."
+          exit 1
