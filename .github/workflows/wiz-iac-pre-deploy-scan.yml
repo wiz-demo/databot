@@ -17,33 +17,25 @@ on:
 jobs:
   wiz-iac-pre-deploy:
     name: Wiz IaC Pre-Deployment Plan Gate
-    environment: dev
     runs-on: ubuntu-latest
     permissions:
       contents: read
       security-events: write
-
     env:
       WIZ_ENV: test
-      WIZ_CLIENT_ID: ${{ secrets.WIZ_CLIENT_ID }}
-      WIZ_CLIENT_SECRET: ${{ secrets.WIZ_CLIENT_SECRET }}
-    
     defaults:
       run:
         working-directory: ./terraform
-
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6
 
       - name: Configure 1Password Service Account
-        if: env.WIZ_CLIENT_ID == '' && secrets.OP_SERVICE_ACCOUNT_TOKEN != ''
         uses: 1password/load-secrets-action/configure@dafbe7cb03502b260e2b2893c753c352eee545bf # ratchet:1password/load-secrets-action/configure@v3.2.1
         with:
           service-account-token: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
 
       - name: Load Environment Secrets
-        if: env.WIZ_CLIENT_ID == '' && secrets.OP_SERVICE_ACCOUNT_TOKEN != ''
         uses: 1password/load-secrets-action@dafbe7cb03502b260e2b2893c753c352eee545bf # ratchet:1password/load-secrets-action@v3.2.1
         with:
           export-env: true
