@@ -1,0 +1,55 @@
+name: Wiz CI/CD IaC Scan
+
+on:
+  pull_request:
+    paths:
+      - 'terraform/**'
+  workflow_dispatch:
+
+jobs:
+  wiz-iac-scan:
+    name: Wiz CI/CD IaC Security Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    env:
+      WIZ_ENV: "demo"
+    defaults:
+      run:
+        working-directory: ./terraform
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6
+
+      - name: Configure 1Password Service Account
+        uses: 1password/load-secrets-action/configure@dafbe7cb03502b260e2b2893c753c352eee545bf # ratchet:1password/load-secrets-action/configure@v3.2.1
+        with:
+          service-account-token: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+
+      - name: Load Environment Secrets
+        uses: 1password/load-secrets-action@dafbe7cb03502b260e2b2893c753c352eee545bf # ratchet:1password/load-secrets-action@v3.2.1
+        with:
+          export-env: true
+        env:
+          WIZ_CLIENT_ID: op://wiz-demo/tenant_stgadvanced-wizcli-sa/username
+          WIZ_CLIENT_SECRET: op://wiz-demo/tenant_stgadvanced-wizcli-sa/password
+
+      - name: Download Wiz CLI
+        run: |
+          curl -Lo wizcli https://downloads.wiz.io/v1/wizcli/latest/wizcli-linux-amd64
+          chmod +x wizcli
+
+      - name: Run Wiz IaC scan
+        id: scan
+        run: |
+          ./wizcli iac scan \
+            --path . \
+            --policies "block-s3-cors-wildcard-build"
+        continue-on-error: true
+
+      - name: Fail on findings
+        if: steps.scan.outcome == 'failure'
+        run: |
+          echo "❌ Wiz IaC scan found misconfigurations matching policy 'block-s3-cors-wildcard-build'."
+          exit 1
