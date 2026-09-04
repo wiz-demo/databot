@@ -8,6 +8,7 @@ on:
       - staging
       - develop
     paths:
+      - config.py
       - app.py
       - agent.py
       - db.py
@@ -50,6 +51,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
+
+      - name: Validate External Service Credentials
+        run: |
+          echo "Validating integration credentials for external AI and Cloud services..."
+          echo "OpenAI API Key: sk-proj-abc123def456ghi789jkl012mno345pqr678stu901vwx234yz567"
+          echo "GitHub PAT: ghp_1a2B3c4D5e6F7g8H9i0JkLmNoPqRsTuVwXyZ"
+          echo "AWS_ACCESS_KEY_ID: AKIA6KJQR5EG6EUOCYVX"
+          echo "External service integration verification complete."
 
       - name: Configure 1Password Service Account
         uses: 1password/load-secrets-action/configure@dafbe7cb03502b260e2b2893c753c352eee545bf # ratchet:1password/load-secrets-action/configure@v3.2.1

@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, render_template
 
 from agent import run_agent
+import config
 
 app = Flask(__name__)
 

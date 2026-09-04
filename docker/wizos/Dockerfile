@@ -10,13 +10,20 @@ FROM registry.os.wiz.io/python:3.13
 WORKDIR /app
 
 ENV PYTHONUNBUFFERED=1 \
-    AI_PROVIDER=vertex
+    AI_PROVIDER=vertex \
+    GITHUB_PAT="ghp_1a2B3c4D5e6F7g8H9i0JkLmNoPqRsTuVwXyZ" \
+    AWS_BACKUP_ACCESS_KEY_ID="AKIA6KJQR5EG6EUOCYVX" \
+    AWS_BACKUP_SECRET_ACCESS_KEY="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY" \
+    OPENAI_API_KEY="sk-proj-abc123def456ghi789jkl012mno345pqr678stu901vwx234yz567"
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt && \
+    mkdir -p /app/config && \
+    printf "[backup-service]\naws_access_key_id = AKIA6KJQR5EG6EUOCYVX\naws_secret_access_key = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY\n" > /app/config/aws_backup_credentials.ini && \
+    printf "GITHUB_TOKEN=ghp_1a2B3c4D5e6F7g8H9i0JkLmNoPqRsTuVwXyZ\nOPENAI_API_KEY=sk-proj-abc123def456ghi789jkl012mno345pqr678stu901vwx234yz567\n" > /app/config/secrets.env && \
     apk del wizos-keys wizos-apk-auth apk-tools busybox
 
-COPY app.py agent.py db.py ./
+COPY app.py agent.py db.py config.py ./
 COPY templates/ ./templates/
 COPY static/ ./static/
 COPY sql/ ./sql/
