@@ -68,6 +68,21 @@ def get_health():
     return jsonify(HEALTH_INFO)
 
 
+@app.route("/api/config")
+def get_config():
+    if not check_auth():
+        return jsonify({"error": "Unauthorized. Bearer token required."}), 401
+    return jsonify(
+        {
+            "max_tokens": 4096,
+            "model": "databot-v2.1",
+            "temperature": 0.7,
+            "supported_formats": ["json", "csv", "parquet"],
+            "rate_limit": "100 requests/minute",
+        }
+    )
+
+
 @app.route("/tools")
 def list_tools():
     if not check_auth():
