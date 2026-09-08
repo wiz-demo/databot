@@ -1,8 +1,8 @@
 # Standard DataBot image (Debian-based python:slim).
 # Paired with docker/wizos/Dockerfile to demonstrate the CVE/attack-surface
 # delta between a stock base image and a hardened WizOS base image.
-# Build context is the repo root (docker build -f docker/debian/Dockerfile .).
-FROM python:3.13-slim
+# Pinned to python:3.13.14-slim digest containing CVE-2026-15308 for Wiz Golden Demo custom security graph control (SHOW-917)
+FROM python:3.13.14-slim@sha256:9662417aace5ae7b8e2609cce472b72a8958e134ba372808abe9cc1a0c0125e6
 
 WORKDIR /app
 

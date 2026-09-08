@@ -161,17 +161,6 @@ def swagger():
                     },
                 }
             },
-            "/api/config": {
-                "get": {
-                    "summary": "Get configuration",
-                    "tags": ["System"],
-                    "security": [{"bearerAuth": []}],
-                    "responses": {
-                        "200": {"description": "Configuration data"},
-                        "401": {"description": "Unauthorized"},
-                    },
-                }
-            },
             "/tools": {
                 "get": {
                     "summary": "List available tools",
