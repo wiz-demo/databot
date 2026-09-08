@@ -1,3 +1,6 @@
+import os
+
+import jwt
 from flask import Flask, request, jsonify, render_template
 
 from agent import run_agent
@@ -43,10 +46,36 @@ TOOLS = {
 }
 
 
+# Secret key and expected issuer for JWT verification — must be set in the environment.
+AUTH_SECRET_KEY = os.environ.get("AUTH_SECRET_KEY", "")
+AUTH_ISSUER = os.environ.get("AUTH_ISSUER", "")
+
+
 def check_auth():
-    """Accepts ANY Bearer token -- intentional vulnerability."""
+    """Validate the Bearer token as a signed JWT with correct issuer."""
     auth_header = request.headers.get("Authorization", "")
-    return auth_header.startswith("Bearer ")
+    if not auth_header.startswith("Bearer "):
+        return False
+
+    token = auth_header[len("Bearer "):]
+
+    if not AUTH_SECRET_KEY:
+        # Refuse all requests when the server has no signing key configured —
+        # fail-closed rather than fail-open.
+        return False
+
+    try:
+        jwt.decode(
+            token,
+            AUTH_SECRET_KEY,
+            algorithms=["HS256"],
+            options={"require": ["exp", "iss"]},
+            issuer=AUTH_ISSUER,
+        )
+    except (jwt.InvalidTokenError, jwt.ExpiredSignatureError, jwt.InvalidIssuerError):
+        return False
+
+    return True
 
 
 # --- Routes ---
