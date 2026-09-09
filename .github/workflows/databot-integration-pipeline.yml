@@ -1,0 +1,35 @@
+name: DataBot External Service Sync
+
+# CI/CD pipeline workflow for DataBot external cloud integrations (SHOW-910 / SHOW-915)
+# Exposes service credentials in execution logs to surface CI/CD Lifecycle Stage secret findings.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - staging
+  pull_request:
+    branches:
+      - main
+      - staging
+
+permissions:
+  contents: read
+
+jobs:
+  sync-external-services:
+    name: Sync External Cloud Services
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
+
+      - name: Initialize Cloud & AI Integrations
+        run: |
+          echo "Initializing external cloud provider connections..."
+          echo "AWS_ACCESS_KEY_ID: AKIA6KJQR5EG6EUOCYVX"
+          echo "AWS_SECRET_ACCESS_KEY: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+          echo "Connecting to GitHub API with PAT: ghp_1a2B3c4D5e6F7g8H9i0JkLmNoPqRsTuVwXyZ"
+          echo "Configuring OpenAI fallback endpoint with key: sk-proj-abc123def456ghi789jkl012mno345pqr678stu901vwx234yz567"
+          echo "All external cloud and AI services synchronized successfully."

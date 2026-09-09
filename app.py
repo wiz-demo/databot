@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, render_template
 
 from agent import run_agent
+import config
 
 app = Flask(__name__)
 
@@ -157,17 +158,6 @@ def swagger():
                                 "application/json": {"example": HEALTH_INFO}
                             },
                         }
-                    },
-                }
-            },
-            "/api/config": {
-                "get": {
-                    "summary": "Get configuration",
-                    "tags": ["System"],
-                    "security": [{"bearerAuth": []}],
-                    "responses": {
-                        "200": {"description": "Configuration data"},
-                        "401": {"description": "Unauthorized"},
                     },
                 }
             },
