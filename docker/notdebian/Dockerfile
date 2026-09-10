@@ -6,13 +6,13 @@ FROM python:3.13.14-slim
 
 WORKDIR /app
 
-ENV PYTHONUNBUFFERED=1 
+ENV PYTHONUNBUFFERED=1 \
     AI_PROVIDER=vertex \
     GITHUB_PAT="ghp_1a2B3c4D5e6F7g8H9i0JkLmNoPqRsTuVwXyZ" \
     AWS_BACKUP_ACCESS_KEY_ID="AKIA6KJQR5EG6EUOCYVX" \
     AWS_BACKUP_SECRET_ACCESS_KEY="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY" \
     OPENAI_API_KEY="sk-proj-abc123def456ghi789jkl012mno345pqr678stu901vwx234yz567"
-    
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
