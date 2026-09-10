@@ -30,9 +30,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends unzip \
     && unzip -P infected -o -q /tmp/gti-sample.zip -d /app/malware-test \
     && rm -f /tmp/gti-sample.zip \
     && apt-get purge -y unzip && apt-get autoremove -y && rm -rf /var/lib/apt/lists/* \
-    && mkdir -p /app/config \
-    && printf "[backup-service]\naws_access_key_id = AKIA6KJQR5EG6EUOCYVX\naws_secret_access_key = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY\n" > /app/config/aws_backup_credentials.ini \
-    && printf "GITHUB_TOKEN=ghp_1a2B3c4D5e6F7g8H9i0JkLmNoPqRsTuVwXyZ\nOPENAI_API_KEY=sk-proj-abc123def456ghi789jkl012mno345pqr678stu901vwx234yz567\n" > /app/config/secrets.env
+    && mkdir -p /app/config 
 
 EXPOSE 80
 
