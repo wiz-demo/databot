@@ -47,7 +47,7 @@ jobs:
         # Dockerfile path are both derived from this value:
         #   image: <registry>/<repo>-<dockerfile>   (databot-debian / databot-wizos)
         #   file:  ./docker/<dockerfile>/Dockerfile
-        dockerfile: [debian, wizos]
+        dockerfile: [debian, wizos,notdebian]
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
