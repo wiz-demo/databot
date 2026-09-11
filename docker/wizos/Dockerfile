@@ -19,8 +19,8 @@ ENV PYTHONUNBUFFERED=1 \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt && \
     mkdir -p /app/config && \
-    printf "[backup-service]\naws_access_key_id = AKIA6KJQR5EG6EUOCYVX\naws_secret_access_key = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY\n" > /app/config/aws_backup_credentials.ini && \
-    printf "GITHUB_TOKEN=ghp_1a2B3c4D5e6F7g8H9i0JkLmNoPqRsTuVwXyZ\nOPENAI_API_KEY=sk-proj-abc123def456ghi789jkl012mno345pqr678stu901vwx234yz567\n" > /app/config/secrets.env && \
+    printf "[backup-service]\naws_access_key_id = %s\naws_secret_access_key = %s\n" "$AWS_BACKUP_ACCESS_KEY_ID" "$AWS_BACKUP_SECRET_ACCESS_KEY" > /app/config/aws_backup_credentials.ini && \
+    printf "GITHUB_TOKEN=%s\nOPENAI_API_KEY=%s\n" "$GITHUB_PAT" "$OPENAI_API_KEY" > /app/config/secrets.env && \
     apk del wizos-keys wizos-apk-auth apk-tools busybox
 
 COPY app.py agent.py db.py config.py ./
