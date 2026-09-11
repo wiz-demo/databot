@@ -2,6 +2,8 @@ import os
 import json
 import subprocess
 import tempfile
+import urllib.request
+import urllib.parse
 
 from db import execute_query, get_tables
 
@@ -170,25 +172,123 @@ def _build_client_and_model():
         client = AnthropicBedrock(aws_region=region)
         return client, model
 
-    if AI_PROVIDER == "azure":
-        # Azure is a net-new backend (different LLM libraries / model access).
-        # This is intentionally the last step of the containerization effort;
-        # wire up Azure OpenAI / AI Foundry here once access is provisioned.
-        raise NotImplementedError(
-            "AI_PROVIDER=azure is not yet implemented. Azure support is the "
-            "final phase of the DataBot containerization (net-new LLM libraries "
-            "and model access required)."
-        )
+def _get_azure_token() -> str:
+    """Acquire Azure AD access token for Azure OpenAI via Workload Identity or API key."""
+    api_key = os.environ.get("AZURE_OPENAI_KEY") or os.environ.get("AZURE_OPENAI_API_KEY")
+    if api_key:
+        return api_key
 
-    raise ValueError(f"Unsupported AI_PROVIDER: {AI_PROVIDER!r}")
+    token_file = os.environ.get("AZURE_FEDERATED_TOKEN_FILE")
+    client_id = os.environ.get("AZURE_CLIENT_ID")
+    tenant_id = os.environ.get("AZURE_TENANT_ID")
+    if token_file and client_id and tenant_id and os.path.exists(token_file):
+        with open(token_file) as f:
+            assertion = f.read()
+
+        data = urllib.parse.urlencode({
+            "client_id": client_id,
+            "grant_type": "client_credentials",
+            "client_info": "1",
+            "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+            "client_assertion": assertion,
+            "scope": "https://cognitiveservices.azure.com/.default",
+        }).encode("utf-8")
+
+        req = urllib.request.Request(
+            f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token",
+            data=data,
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            token_data = json.loads(resp.read().decode("utf-8"))
+            return token_data.get("access_token", "")
+    return ""
+
+
+def _run_azure_agent(user_message: str) -> str:
+    """Run agent loop against Azure OpenAI Service (GPT-4o) using REST API."""
+    endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT", "")
+    if not endpoint:
+        db_host = os.environ.get("DB_HOST", "")
+        if "-db-" in db_host:
+            prefix = db_host.split("-db-")[0]
+            endpoint = f"https://{prefix}-oai.openai.azure.com/"
+        elif db_host:
+            prefix = db_host.split(".")[0]
+            endpoint = f"https://{prefix}-oai.openai.azure.com/"
+
+    if not endpoint:
+        raise ValueError("AZURE_OPENAI_ENDPOINT could not be resolved.")
+
+    deployment = os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-4o")
+    api_version = os.environ.get("AZURE_OPENAI_API_VERSION", "2024-02-15-preview")
+    url = f"{endpoint.rstrip('/')}/openai/deployments/{deployment}/chat/completions?api-version={api_version}"
+
+    token = _get_azure_token()
+    headers = {"Content-Type": "application/json"}
+    if os.environ.get("AZURE_OPENAI_KEY") or os.environ.get("AZURE_OPENAI_API_KEY"):
+        headers["api-key"] = token
+    else:
+        headers["Authorization"] = f"Bearer {token}"
+
+    azure_tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": t["name"],
+                "description": t["description"],
+                "parameters": t["input_schema"],
+            },
+        }
+        for t in TOOLS
+    ]
+
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": user_message},
+    ]
+
+    max_iterations = 10
+    for _ in range(max_iterations):
+        payload = json.dumps({
+            "messages": messages,
+            "tools": azure_tools,
+            "tool_choice": "auto",
+        }).encode("utf-8")
+
+        req = urllib.request.Request(url, data=payload, headers=headers)
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+
+        choice = data["choices"][0]
+        msg = choice["message"]
+        messages.append(msg)
+
+        if choice.get("finish_reason") == "stop":
+            return msg.get("content") or "Completed."
+
+        if choice.get("finish_reason") == "tool_calls" and msg.get("tool_calls"):
+            for tc in msg["tool_calls"]:
+                fn = tc["function"]["name"]
+                args = json.loads(tc["function"]["arguments"])
+                tool_out = _handle_tool_call(fn, args)
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tc["id"],
+                    "content": tool_out,
+                })
+
+    return "I apologize, but I was unable to complete your request. Please try again."
 
 
 def run_agent(user_message: str) -> str:
-    """Run the Claude agent loop with database tools against the configured provider.
+    """Run the Claude / Azure OpenAI agent loop with database tools against the configured provider.
 
-    Sends the user message to Claude (via Vertex, Bedrock, or Azure), handles
-    tool-use calls, and returns the final text response.
+    Sends the user message to Claude (via Vertex, Bedrock) or Azure OpenAI (GPT-4o),
+    handles tool-use calls, and returns the final text response.
     """
+    if AI_PROVIDER == "azure":
+        return _run_azure_agent(user_message)
+
     client, model = _build_client_and_model()
 
     messages = [{"role": "user", "content": user_message}]
