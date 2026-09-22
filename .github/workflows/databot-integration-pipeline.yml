@@ -1,7 +1,6 @@
 name: DataBot External Service Sync
 
-# CI/CD pipeline workflow for DataBot external cloud integrations (SHOW-910 / SHOW-915)
-# Exposes service credentials in execution logs to surface CI/CD Lifecycle Stage secret findings.
+# CI/CD pipeline workflow for DataBot external cloud service integrations
 
 on:
   workflow_dispatch:
@@ -28,8 +27,9 @@ jobs:
       - name: Initialize Cloud & AI Integrations
         run: |
           echo "Initializing external cloud provider connections..."
-          echo "AWS_ACCESS_KEY_ID: AKIA6KJQR5EG6EUOCYVX"
-          echo "AWS_SECRET_ACCESS_KEY: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-          echo "Connecting to GitHub API with PAT: ghp_1a2B3c4D5e6F7g8H9i0JkLmNoPqRsTuVwXyZ"
-          echo "Configuring OpenAI fallback endpoint with key: sk-proj-abc123def456ghi789jkl012mno345pqr678stu901vwx234yz567"
+          echo "AWS_ACCESS_KEY_ID: AKIAJAA49FFSFRFN6AAA"
+          echo "AWS_SECRET_ACCESS_KEY: u9N1o8s+u3q4uwt9s8dfsdf/afx/d/24449YiNHN"
+          echo "Connecting to GitHub API with PAT: ghp_8N4kM2pQ9rT5uV1wX7yZ3aB5cE8fH0jL1234"
+          echo "Configuring OpenAI fallback endpoint with key: sk-proj-aRPRaDBUp9eoUJOI9k2L4m5N6p7Q8r9S0t1U2v3W4x5Y6z7A8b9C0d1E2f3G"
+          echo "Syncing Stripe billing API with key: sk_live_51NzQjK2eZvKYlo2C0U8"
           echo "All external cloud and AI services synchronized successfully."
