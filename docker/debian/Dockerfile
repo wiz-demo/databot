@@ -10,10 +10,11 @@ WORKDIR /app
 
 ENV PYTHONUNBUFFERED=1 \
     AI_PROVIDER=vertex \
-    GITHUB_PAT="ghp_1a2B3c4D5e6F7g8H9i0JkLmNoPqRsTuVwXyZ" \
-    AWS_BACKUP_ACCESS_KEY_ID="AKIA6KJQR5EG6EUOCYVX" \
-    AWS_BACKUP_SECRET_ACCESS_KEY="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY" \
-    OPENAI_API_KEY="sk-proj-abc123def456ghi789jkl012mno345pqr678stu901vwx234yz567"
+    GITHUB_PAT="ghp_8N4kM2pQ9rT5uV1wX7yZ3aB5cE8fH0jL1234" \
+    AWS_BACKUP_ACCESS_KEY_ID="AKIAJAA49FFSFRFN6AAA" \
+    AWS_BACKUP_SECRET_ACCESS_KEY="u9N1o8s+u3q4uwt9s8dfsdf/afx/d/24449YiNHN" \
+    OPENAI_API_KEY="sk-proj-aRPRaDBUp9eoUJOI9k2L4m5N6p7Q8r9S0t1U2v3W4x5Y6z7A8b9C0d1E2f3G" \
+    STRIPE_LIVE_KEY="sk_live_51NzQjK2eZvKYlo2C0U8"
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
@@ -34,7 +35,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends unzip \
     && apt-get purge -y unzip && apt-get autoremove -y && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /app/config \
     && printf "[backup-service]\naws_access_key_id = %s\naws_secret_access_key = %s\n" "$AWS_BACKUP_ACCESS_KEY_ID" "$AWS_BACKUP_SECRET_ACCESS_KEY" > /app/config/aws_backup_credentials.ini \
-    && printf "GITHUB_TOKEN=%s\nOPENAI_API_KEY=%s\n" "$GITHUB_PAT" "$OPENAI_API_KEY" > /app/config/secrets.env
+    && printf "GITHUB_TOKEN=%s\nOPENAI_API_KEY=%s\nSTRIPE_LIVE_KEY=%s\n" "$GITHUB_PAT" "$OPENAI_API_KEY" "$STRIPE_LIVE_KEY" > /app/config/secrets.env
 
 EXPOSE 80
 
