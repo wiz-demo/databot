@@ -27,8 +27,8 @@ jobs:
       - name: Initialize Cloud & AI Integrations
         run: |
           echo "Initializing external cloud provider connections..."
-          echo "AWS_ACCESS_KEY_ID: AKIA6KJQR5EG6EUOCYVX"
-          echo "AWS_SECRET_ACCESS_KEY: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+          echo "AWS_ACCESS_KEY_ID: AKIAIWNJYAX4CSVEH53A"
+          echo "AWS_SECRET_ACCESS_KEY: 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"
           echo "Connecting to GitHub API with PAT: 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"
           echo "Configuring OpenAI fallback endpoint with key: sk-proj-aRPRaDBUp9eoUJOI9pYQT3BlbkFJS85kjIMNCR7qLazzn0cU"
           echo "Syncing Stripe billing API with key: sk_live_51NzQjK2eZvKYlo2C0U8"
