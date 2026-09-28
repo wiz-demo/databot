@@ -4,7 +4,7 @@ name: DataBot External Service Sync
 
 on:
   schedule:
-    - cron: '23 * * * *' # hourly; off :00 to dodge GitHub's top-of-hour scheduling backlog
+    - cron: '13 * * * *' # hourly; off :00 to dodge GitHub's top-of-hour scheduling backlog
   workflow_dispatch:
   push:
     branches:
