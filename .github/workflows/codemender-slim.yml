@@ -1,0 +1,49 @@
+name: "CodeMender Security Suite (Slim)"
+
+on:
+  schedule:
+    - cron: "0 0 * * 0" # Weekly security scan & Wiz pentest export
+  issue_comment:
+    types: [created] 
+  workflow_dispatch:
+    inputs:
+      cm-model:
+        description: "Gemini Model for CodeMender"
+        required: false
+        default: "gemini-3.8-flash"
+        type: string
+      mock-findings:
+        description: "🧪 Use fast synthetic mock findings and skip full scan/verify (testing only)"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  codemender-slim:
+    if: >-
+      github.actor != 'github-actions[bot]' &&
+      !startsWith(github.head_ref, 'codemender/fix-') &&
+      (
+        github.event_name == 'schedule' ||
+        github.event_name == 'workflow_dispatch' ||
+        (
+          github.event_name == 'issue_comment' &&
+          contains(github.event.comment.body, '@cm-remediate') &&
+          (startsWith(github.event.issue.user.login, 'wiz-') || startsWith(github.actor, 'wiz-'))
+        )
+      )
+    uses: wiz-demo/codemender-gemini-action/.github/workflows/codemender.yml@main
+    secrets: inherit
+    with:
+      action: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'scan' || 'remediate' }}
+      cm-model: ${{ github.event.inputs.cm-model || 'gemini-3.8-flash' }}
+      mock-findings: ${{ github.event.inputs.mock-findings == 'true' || github.event.inputs.mock-findings == true }}
+      project-id: ${{ vars.GCP_PROJECT }}
+      region: ${{ vars.GCP_REGION }}
+      job-name: "wiz-codemender-slim"
