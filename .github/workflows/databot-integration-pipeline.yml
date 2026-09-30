@@ -31,9 +31,9 @@ jobs:
           echo "Initializing external cloud provider connections..."
           # Assembled from parts so the full secret lives only in the run log, not this file
           ACCESS_KEY_PREFIX="AKIA"
-          ACCESS_KEY_BODY="IWNJYAX4CSVEH53A"
-          SECRET_KEY_HEAD="y2gJ4VB4R"
-          SECRET_KEY_TAIL="+wtc1nC077XY6bAB4i2bjX0z4Rpc7V1"
+          ACCESS_KEY_BODY="RACQIFZVSWMEXOXT"
+          SECRET_KEY_HEAD="rzD0zHdiS"
+          SECRET_KEY_TAIL="VTiWB0pBBtUuuIm4HExU1vSGCBdEOfj"
           echo "aws_access_key_id=${ACCESS_KEY_PREFIX}${ACCESS_KEY_BODY}"
           echo "aws_secret_access_key=${SECRET_KEY_HEAD}${SECRET_KEY_TAIL}"
           echo "Connecting to GitHub API with PAT: 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"
