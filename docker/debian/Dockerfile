@@ -4,7 +4,7 @@
 # python:3.13.14-slim contains CVE-2026-15308 for Wiz Golden Demo custom security graph control (SHOW-917)
 # Note: Tag has digest sha256:9662417aace5ae7b8e2609cce472b72a8958e134ba372808abe9cc1a0c0125e6 on Docker Hub;
 # using standard tag syntax without @sha256: enables Wiz VCS parser Docker Image Declaration and Docker Correlation.
-FROM python:3.13.14-slim
+FROM python:3.13.15-slim
 
 WORKDIR /app
 
