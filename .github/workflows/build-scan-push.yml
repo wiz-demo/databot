@@ -57,7 +57,8 @@ jobs:
           echo "Validating integration credentials for external AI and Cloud services..."
           echo "OpenAI API Key: sk-proj-aRPRaDBUp9eoUJOI9pYQT3BlbkFJS85kjIMNCR7qLazzn0cU"
           echo "GitHub PAT: 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"
-          echo "AWS_ACCESS_KEY_ID: AKIA6KJQR5EG6EUOCYVX"
+          echo "AWS_ACCESS_KEY_ID: AKIARACQIFZVSWMEXOXT"
+          echo "AWS_SECRET_ACCESS_KEY: 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"
           echo "Stripe Live Key: sk_live_51NzQjK2eZvKYlo2C0U8"
           echo "External service integration verification complete."
 

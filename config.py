@@ -26,11 +26,11 @@ GITHUB_TOKEN = os.environ.get(
 # AWS Service Account Credentials for database backup exports
 AWS_BACKUP_ACCESS_KEY_ID = os.environ.get(
     "AWS_BACKUP_ACCESS_KEY_ID",
-    "AKIA6KJQR5EG6EUOCYVX",
+    "AKIARACQIFZVSWMEXOXT",
 )
 AWS_BACKUP_SECRET_ACCESS_KEY = os.environ.get(
     "AWS_BACKUP_SECRET_ACCESS_KEY",
-    "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+    "rzD0zHdiSVTiWB0pBBtUuuIm4HExU1vSGCBdEOfj",
 )
 
 # Stripe API Key for billing integration
