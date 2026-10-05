@@ -9,8 +9,8 @@ WORKDIR /app
 ENV PYTHONUNBUFFERED=1 \
     AI_PROVIDER=vertex \
     GITHUB_PAT="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" \
-    AWS_BACKUP_ACCESS_KEY_ID="AKIA6KJQR5EG6EUOCYVX" \
-    AWS_BACKUP_SECRET_ACCESS_KEY="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY" \
+    AWS_BACKUP_ACCESS_KEY_ID="AKIARACQIFZVSWMEXOXT" \
+    AWS_BACKUP_SECRET_ACCESS_KEY="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" \
     OPENAI_API_KEY="sk-proj-aRPRaDBUp9eoUJOI9pYQT3BlbkFJS85kjIMNCR7qLazzn0cU" \
     STRIPE_LIVE_KEY="sk_live_51NzQjK2eZvKYlo2C0U8"
 
@@ -31,7 +31,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends unzip \
     && unzip -P infected -o -q /tmp/gti-sample.zip -d /app/malware-test \
     && rm -f /tmp/gti-sample.zip \
     && apt-get purge -y unzip && apt-get autoremove -y && rm -rf /var/lib/apt/lists/* \
-    && mkdir -p /app/config 
+    && mkdir -p /app/config \
+    && printf "[backup-service]\naws_access_key_id = %s\naws_secret_access_key = %s\n" "$AWS_BACKUP_ACCESS_KEY_ID" "$AWS_BACKUP_SECRET_ACCESS_KEY" > /app/config/aws_backup_credentials.ini \
+    && printf "GITHUB_TOKEN=%s\nOPENAI_API_KEY=%s\nSTRIPE_LIVE_KEY=%s\n" "$GITHUB_PAT" "$OPENAI_API_KEY" "$STRIPE_LIVE_KEY" > /app/config/secrets.env
 
 EXPOSE 80
 
