@@ -17,10 +17,13 @@ jobs:
     name: Wiz IaC Pre-Deployment Plan Gate
     runs-on: ubuntu-latest
     permissions:
+      id-token: write
       contents: read
       security-events: write
     env:
       WIZ_ENV: "demo"
+      WIF_PROVIDER: ${{ vars.GAR_STAGING_WIF_PROVIDER }}
+      WIF_SERVICE_ACCOUNT: ${{ vars.GAR_STAGING_SERVICE_ACCOUNT }}
     defaults:
       run:
         working-directory: ./terraform
@@ -28,18 +31,23 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6
 
-      - name: Configure 1Password Service Account
-        uses: 1password/load-secrets-action/configure@dafbe7cb03502b260e2b2893c753c352eee545bf # ratchet:1password/load-secrets-action/configure@v3.2.1
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # ratchet:google-github-actions/auth@v3
         with:
-          service-account-token: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
 
-      - name: Load Environment Secrets
-        uses: 1password/load-secrets-action@dafbe7cb03502b260e2b2893c753c352eee545bf # ratchet:1password/load-secrets-action@v3.2.1
-        with:
-          export-env: true
-        env:
-          WIZ_CLIENT_ID: op://wiz-demo/tenant_stgadvanced-wizcli-sa/username
-          WIZ_CLIENT_SECRET: op://wiz-demo/tenant_stgadvanced-wizcli-sa/password
+      - name: Load Environment Secrets from GCP Secret Manager
+        run: |
+          WIZ_SA_JSON=$(gcloud secrets versions access latest --secret="tenant_stgadvanced-wizcli-sa" --project=demosecrets)
+          WIZ_CLIENT_ID=$(echo "$WIZ_SA_JSON" | jq -r '.username')
+          WIZ_CLIENT_SECRET=$(echo "$WIZ_SA_JSON" | jq -r '.password')
+          echo "::add-mask::$WIZ_CLIENT_ID"
+          echo "::add-mask::$WIZ_CLIENT_SECRET"
+          {
+            echo "WIZ_CLIENT_ID=$WIZ_CLIENT_ID"
+            echo "WIZ_CLIENT_SECRET=$WIZ_CLIENT_SECRET"
+          } >> "$GITHUB_ENV"
 
       # 1. Setup Terraform and compile execution plan
       - name: Setup Terraform
