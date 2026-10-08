@@ -1,0 +1,89 @@
+name: Wiz IaC Pre-Deployment Scan (4.1.5)
+
+on:
+  pull_request:
+    paths:
+      - 'terraform/**'
+  push:
+    branches:
+      - main
+      - staging
+    paths:
+      - 'terraform/**'
+  workflow_dispatch:
+
+jobs:
+  wiz-iac-pre-deploy:
+    name: Wiz IaC Pre-Deployment Plan Gate
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      security-events: write
+    env:
+      WIZ_ENV: "demo"
+      WIF_PROVIDER: ${{ vars.GAR_STAGING_WIF_PROVIDER }}
+      WIF_SERVICE_ACCOUNT: ${{ vars.GAR_STAGING_SERVICE_ACCOUNT }}
+    defaults:
+      run:
+        working-directory: ./terraform
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # ratchet:google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
+
+      - name: Load Environment Secrets from GCP Secret Manager
+        run: |
+          WIZ_SA_JSON=$(gcloud secrets versions access latest --secret="tenant_stgadvanced-wizcli-sa" --project=demosecrets)
+          WIZ_CLIENT_ID=$(echo "$WIZ_SA_JSON" | jq -r '.username')
+          WIZ_CLIENT_SECRET=$(echo "$WIZ_SA_JSON" | jq -r '.password')
+          echo "::add-mask::$WIZ_CLIENT_ID"
+          echo "::add-mask::$WIZ_CLIENT_SECRET"
+          {
+            echo "WIZ_CLIENT_ID=$WIZ_CLIENT_ID"
+            echo "WIZ_CLIENT_SECRET=$WIZ_CLIENT_SECRET"
+          } >> "$GITHUB_ENV"
+
+      # 1. Setup Terraform and compile execution plan
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Terraform Init & Plan
+        run: |
+          terraform init
+          terraform plan -out=tfplan.binary
+          terraform show -json tfplan.binary > plan.tfplanjson
+
+      # 2. Download and prepare Wiz CLI
+      - name: Download Wiz CLI
+        run: |
+          curl -Lo wizcli https://downloads.wiz.io/v1/wizcli/latest/wizcli-linux-amd64
+          chmod +x wizcli
+
+      # 3. 4.1.5 Core Requirement: Scan the compiled plan artifact
+      - name: Run Wiz IaC Pre-Deployment Scan
+        id: scan
+        run: |
+          ./wizcli iac scan \
+            --path plan.tfplanjson \
+            --policies "block-s3-cors-wildcard-build"
+        continue-on-error: true
+
+      # 4. Enforce pre-deployment gate (halts pipeline on policy violation)
+      - name: Pre-Deployment Policy Gate
+        if: steps.scan.outcome == 'failure'
+        run: |
+          echo "❌ Pre-Deployment Gate Failed: Resolved Terraform plan violates Wiz policy 'block-s3-cors-wildcard-build'."
+          exit 1
+
+      # 5. Apply only proceeds if the Wiz scan passes cleanly
+      - name: Terraform Apply
+        run: |
+          echo "✅ Wiz Pre-Deployment gate passed. Proceeding with deployment."
