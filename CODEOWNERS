@@ -12,4 +12,4 @@
 # Docs: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
 # Default owner for everything in the repo
-* @wiz-demo/wiz-demo-infra-maintainers
+* @wiz-demo/wiz-demo-infra-maintainers @wiz-demo/demo-maintainers @wiz-demo/wiz-demo-infra-writers
