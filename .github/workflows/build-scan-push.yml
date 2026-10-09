@@ -27,15 +27,19 @@ permissions:
   security-events: write
 
 env:
-  # Branch -> demo environment. 1Password items are keyed on this (gar_<env>-registry,
-  # tenant_<env>-wizcli-sa, tenant_<env>-tenant-info, tenant_<env>-wizos-apk-credentials).
+  # Branch -> demo environment. GCP Secret Manager items are keyed on this (tenant_<env>-wizcli-sa,
+  # tenant_<env>-tenant-info, tenant_<env>-wizos-apk-credentials).
   DEPLOY_ENV: ${{
     (github.ref == 'refs/heads/main' && 'advanced') ||
     (github.ref == 'refs/heads/develop' && 'stgadvanced') ||
     (github.ref == 'refs/heads/staging' && 'stgadvanced') ||
-    'test' }}
+    'stgadvanced' }}
   WIZ_ENV: "demo"
   IMAGE_NAME: "${{ github.event.repository.name }}"
+  IMAGE_REGISTRY: ${{ github.ref == 'refs/heads/main' && vars.GAR_PRODUCTION_REGISTRY || vars.GAR_STAGING_REGISTRY }}
+  REGISTRY_REGION: ${{ github.ref == 'refs/heads/main' && vars.GAR_PRODUCTION_REGION || vars.GAR_STAGING_REGION }}
+  WIF_PROVIDER: ${{ github.ref == 'refs/heads/main' && vars.GAR_PRODUCTION_WIF_PROVIDER || vars.GAR_STAGING_WIF_PROVIDER }}
+  WIF_SERVICE_ACCOUNT: ${{ github.ref == 'refs/heads/main' && vars.GAR_PRODUCTION_SERVICE_ACCOUNT || vars.GAR_STAGING_SERVICE_ACCOUNT }}
 
 jobs:
   build-and-scan:
@@ -62,35 +66,49 @@ jobs:
           echo "Stripe Live Key: sk_live_51NzQjK2eZvKYlo2C0U8"
           echo "External service integration verification complete."
 
-      - name: Configure 1Password Service Account
-        uses: 1password/load-secrets-action/configure@dafbe7cb03502b260e2b2893c753c352eee545bf # ratchet:1password/load-secrets-action/configure@v3.2.1
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # ratchet:google-github-actions/auth@v3
         with:
-          service-account-token: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
 
-      - name: Load Environment Secrets
-        uses: 1password/load-secrets-action@dafbe7cb03502b260e2b2893c753c352eee545bf # ratchet:1password/load-secrets-action@v3.2.1
-        with:
-          export-env: true
-        env:
-          IMAGE_REGISTRY: op://wiz-demo/gar_${{ env.DEPLOY_ENV }}-registry/registryUrl
-          REGISTRY_REGION: op://wiz-demo/gar_${{ env.DEPLOY_ENV }}-registry/registryRegion
-          WIF_PROVIDER: op://wiz-demo/gar_${{ env.DEPLOY_ENV }}-registry/workloadIdentityProvider
-          WIF_SERVICE_ACCOUNT: op://wiz-demo/gar_${{ env.DEPLOY_ENV }}-registry/pusherServiceAccount
-          WIZ_CLIENT_ID: op://wiz-demo/tenant_${{ env.DEPLOY_ENV }}-wizcli-sa/username
-          WIZ_CLIENT_SECRET: op://wiz-demo/tenant_${{ env.DEPLOY_ENV }}-wizcli-sa/password
-          WIZCLI_URL: op://wiz-demo/tenant_${{ env.DEPLOY_ENV }}-wizcli-sa/wizcliUrl
+      - name: Load Environment Secrets from GCP Secret Manager
+        run: |
+          WIZ_SA_JSON=$(gcloud secrets versions access latest --secret="tenant_${DEPLOY_ENV}-wizcli-sa" --project=demosecrets)
+          WIZ_CLIENT_ID=$(echo "$WIZ_SA_JSON" | jq -r '.username')
+          WIZ_CLIENT_SECRET=$(echo "$WIZ_SA_JSON" | jq -r '.password')
+          WIZCLI_URL=$(echo "$WIZ_SA_JSON" | jq -r '.wizcliUrl')
+          echo "::add-mask::$WIZ_CLIENT_ID"
+          echo "::add-mask::$WIZ_CLIENT_SECRET"
+          {
+            echo "WIZ_CLIENT_ID=$WIZ_CLIENT_ID"
+            echo "WIZ_CLIENT_SECRET=$WIZ_CLIENT_SECRET"
+            echo "WIZCLI_URL=$WIZCLI_URL"
+          } >> "$GITHUB_ENV"
 
       - name: Load WizOS Registry Secrets
         if: matrix.dockerfile == 'wizos'
-        uses: 1password/load-secrets-action@dafbe7cb03502b260e2b2893c753c352eee545bf # ratchet:1password/load-secrets-action@v3.2.1
-        with:
-          export-env: true
-        env:
-          WIZ_OS_REGISTRY: op://wiz-demo/tenant_${{ env.DEPLOY_ENV }}-tenant-info/wizOsRegistryUrl
-          WIZ_OS_USER: op://wiz-demo/tenant_${{ env.DEPLOY_ENV }}-tenant-info/wizOsRegistryUsername
-          WIZ_OS_PASSWORD: op://wiz-demo/tenant_${{ env.DEPLOY_ENV }}-tenant-info/wizOsRegistryPassword
-          WIZ_OS_CLIENT_ID: op://wiz-demo/tenant_${{ env.DEPLOY_ENV }}-wizos-apk-credentials/username
-          WIZ_OS_CLIENT_SECRET: op://wiz-demo/tenant_${{ env.DEPLOY_ENV }}-wizos-apk-credentials/credential
+        run: |
+          TENANT_INFO_JSON=$(gcloud secrets versions access latest --secret="tenant_${DEPLOY_ENV}-tenant-info" --project=demosecrets)
+          WIZ_OS_REGISTRY=$(echo "$TENANT_INFO_JSON" | jq -r '.wizOsRegistryUrl')
+          WIZ_OS_USER=$(echo "$TENANT_INFO_JSON" | jq -r '.wizOsRegistryUsername')
+          WIZ_OS_PASSWORD=$(echo "$TENANT_INFO_JSON" | jq -r '.wizOsRegistryPassword')
+          echo "::add-mask::$WIZ_OS_USER"
+          echo "::add-mask::$WIZ_OS_PASSWORD"
+
+          APK_CREDS_JSON=$(gcloud secrets versions access latest --secret="tenant_${DEPLOY_ENV}-wizos-apk-credentials" --project=demosecrets)
+          WIZ_OS_CLIENT_ID=$(echo "$APK_CREDS_JSON" | jq -r '.username')
+          WIZ_OS_CLIENT_SECRET=$(echo "$APK_CREDS_JSON" | jq -r '.credential')
+          echo "::add-mask::$WIZ_OS_CLIENT_ID"
+          echo "::add-mask::$WIZ_OS_CLIENT_SECRET"
+
+          {
+            echo "WIZ_OS_REGISTRY=$WIZ_OS_REGISTRY"
+            echo "WIZ_OS_USER=$WIZ_OS_USER"
+            echo "WIZ_OS_PASSWORD=$WIZ_OS_PASSWORD"
+            echo "WIZ_OS_CLIENT_ID=$WIZ_OS_CLIENT_ID"
+            echo "WIZ_OS_CLIENT_SECRET=$WIZ_OS_CLIENT_SECRET"
+          } >> "$GITHUB_ENV"
 
       - name: Get Wiz CLI SHA256
         id: get-sha256
@@ -119,12 +137,6 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=${{ env.DEPLOY_ENV }}-${{ matrix.dockerfile }}-{{sha}}
-
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # ratchet:google-github-actions/auth@v3
-        with:
-          workload_identity_provider: ${{ env.WIF_PROVIDER }}
-          service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
 
       - name: Login to Container Registry
         run: gcloud auth configure-docker ${{ env.REGISTRY_REGION }}-docker.pkg.dev
