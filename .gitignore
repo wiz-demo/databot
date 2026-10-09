@@ -7,3 +7,6 @@ venv/
 *-sarif.json
 *-sbom.json
 .DS_Store
+.terraform/
+*.tfplan*
+*.binary
