@@ -147,7 +147,7 @@ def _build_client_and_model():
 
         project = os.environ.get("GOOGLE_CLOUD_PROJECT", "")
         model = os.environ.get("AI_MODEL", "claude-sonnet-4@20250514")
-        region = os.environ.get("VERTEX_REGION", "global")
+        region = os.environ.get("VERTEX_REGION", "us-central1")
 
         access_token = None
         if _gcp_credentials is not None:
@@ -171,6 +171,102 @@ def _build_client_and_model():
         region = os.environ.get("AWS_REGION", "us-east-2")
         client = AnthropicBedrock(aws_region=region)
         return client, model
+
+
+def _get_gcp_access_token() -> str:
+    """Acquire a valid GCP OAuth2 access token for Vertex AI REST calls."""
+    global _gcp_credentials
+    if _gcp_credentials is None:
+        import google.auth
+
+        _gcp_credentials, _ = google.auth.default()
+    if not _gcp_credentials.valid:
+        import google.auth.transport.requests as _google_requests
+
+        _gcp_credentials.refresh(_google_requests.Request())
+    return _gcp_credentials.token or ""
+
+
+def _run_vertex_gemini_agent(user_message: str) -> str:
+    """Run the agent loop via Google Gemini on Vertex AI REST API."""
+    project = os.environ.get("GOOGLE_CLOUD_PROJECT", "")
+    model_name = os.environ.get("FALLBACK_MODEL", "gemini-2.5-flash")
+    region = os.environ.get("FALLBACK_REGION", "us-central1")
+
+    url = (
+        f"https://{region}-aiplatform.googleapis.com/v1/projects/{project}"
+        f"/locations/{region}/publishers/google/models/{model_name}:generateContent"
+    )
+
+    gemini_funcs = [
+        {
+            "name": t["name"],
+            "description": t["description"],
+            "parameters": t["input_schema"],
+        }
+        for t in TOOLS
+    ]
+
+    contents = [{"role": "user", "parts": [{"text": user_message}]}]
+    max_iterations = 10
+
+    for _ in range(max_iterations):
+        token = _get_gcp_access_token()
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}",
+        }
+        payload = json.dumps(
+            {
+                "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+                "tools": [{"functionDeclarations": gemini_funcs}],
+                "contents": contents,
+            }
+        ).encode("utf-8")
+
+        req = urllib.request.Request(url, data=payload, headers=headers)
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+
+        candidates = data.get("candidates") or []
+        if not candidates:
+            return "I apologize, but I received an empty response. Please try again."
+
+        content = candidates[0].get("content") or {}
+        parts = content.get("parts") or []
+        if not parts:
+            return "I apologize, but I was unable to complete your request. Please try again."
+
+        function_calls = [p["functionCall"] for p in parts if "functionCall" in p]
+        text_parts = [p["text"] for p in parts if "text" in p and p["text"]]
+
+        if not function_calls:
+            return (
+                "".join(text_parts)
+                if text_parts
+                else "I'm not sure how to respond. Please try again."
+            )
+
+        contents.append({"role": content.get("role", "model"), "parts": parts})
+        response_parts = []
+        for fc in function_calls:
+            name = fc.get("name", "")
+            args = fc.get("args") or {}
+            if not isinstance(args, dict):
+                args = dict(args) if hasattr(args, "items") else {}
+            result = _handle_tool_call(name, args)
+            response_parts.append(
+                {
+                    "functionResponse": {
+                        "name": name,
+                        "response": {"content": result},
+                    }
+                }
+            )
+        contents.append({"role": "user", "parts": response_parts})
+
+    return "I apologize, but I was unable to complete your request. Please try again."
+
 
 def _get_azure_token() -> str:
     """Acquire Azure AD access token for Azure OpenAI via Workload Identity or API key."""
@@ -281,13 +377,17 @@ def _run_azure_agent(user_message: str) -> str:
 
 
 def run_agent(user_message: str) -> str:
-    """Run the Claude / Azure OpenAI agent loop with database tools against the configured provider.
+    """Run the Claude / Gemini / Azure OpenAI agent loop with database tools.
 
-    Sends the user message to Claude (via Vertex, Bedrock) or Azure OpenAI (GPT-4o),
-    handles tool-use calls, and returns the final text response.
+    Sends the user message to Claude (via Vertex, Bedrock), falls back to
+    Vertex AI Gemini if Claude on Vertex fails before tool execution, or uses
+    Azure OpenAI (GPT-4o), handling tool-use calls and returning the final text.
     """
     if AI_PROVIDER == "azure":
         return _run_azure_agent(user_message)
+
+    if AI_PROVIDER in ("gemini", "google"):
+        return _run_vertex_gemini_agent(user_message)
 
     client, model = _build_client_and_model()
 
@@ -295,15 +395,21 @@ def run_agent(user_message: str) -> str:
 
     # Agent loop: keep going until Claude returns a final text response
     max_iterations = 10
+    tools_executed = False
 
-    for _ in range(max_iterations):
-        response = client.messages.create(
-            model=model,
-            max_tokens=4096,
-            system=SYSTEM_PROMPT,
-            tools=TOOLS,
-            messages=messages,
-        )
+    for iteration in range(max_iterations):
+        try:
+            response = client.messages.create(
+                model=model,
+                max_tokens=4096,
+                system=SYSTEM_PROMPT,
+                tools=TOOLS,
+                messages=messages,
+            )
+        except Exception:
+            if AI_PROVIDER == "vertex" and iteration == 0 and not tools_executed:
+                return _run_vertex_gemini_agent(user_message)
+            raise
 
         # If no tool use requested, extract final text and return
         if response.stop_reason == "end_turn":
@@ -315,6 +421,7 @@ def run_agent(user_message: str) -> str:
 
         # Handle tool use
         if response.stop_reason == "tool_use":
+            tools_executed = True
             # Add assistant response (with tool_use blocks) to conversation
             messages.append({"role": "assistant", "content": response.content})
 
