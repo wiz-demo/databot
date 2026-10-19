@@ -496,7 +496,7 @@ def _run_bedrock_converse_agent(user_message: str) -> str:
             client=client,
             messages=messages,
             system=system,
-            toolConfig=tool_config,
+            tool_config=tool_config,
             excluded=excluded_models,
         )
 
