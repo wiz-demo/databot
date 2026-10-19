@@ -376,18 +376,170 @@ def _run_azure_agent(user_message: str) -> str:
     return "I apologize, but I was unable to complete your request. Please try again."
 
 
-def run_agent(user_message: str) -> str:
-    """Run the Claude / Gemini / Azure OpenAI agent loop with database tools.
+DEFAULT_BEDROCK_MODELS = [
+    "us.amazon.nova-pro-v1:0",
+    "us.meta.llama3-3-70b-instruct-v1:0",
+    "us.meta.llama4-maverick-17b-instruct-v1:0",
+    "us.mistral.pixtral-large-2502-v1:0",
+    "qwen.qwen3-32b-v1:0",
+]
 
-    Sends the user message to Claude (via Vertex, Bedrock), falls back to
-    Vertex AI Gemini if Claude on Vertex fails before tool execution, or uses
-    Azure OpenAI (GPT-4o), handling tool-use calls and returning the final text.
+_WORKING_BEDROCK_MODEL = None
+
+
+def _bedrock_model_candidates() -> list:
+    """Return prioritized Bedrock model IDs, overridable via AI_MODELS or AI_MODEL."""
+    env = os.environ.get("AI_MODELS") or os.environ.get("AI_MODEL")
+    if env:
+        return [m.strip() for m in env.split(",") if m.strip()]
+    return DEFAULT_BEDROCK_MODELS
+
+
+def _bedrock_tool_config() -> dict:
+    """Convert TOOLS into the Bedrock Converse toolConfig format."""
+    return {
+        "tools": [
+            {
+                "toolSpec": {
+                    "name": t["name"],
+                    "description": t["description"],
+                    "inputSchema": {"json": t["input_schema"]},
+                }
+            }
+            for t in TOOLS
+        ]
+    }
+
+
+def _resolve_bedrock_model(client, excluded: set | None = None) -> str:
+    """Return the first candidate Bedrock model that responds to a probe request."""
+    global _WORKING_BEDROCK_MODEL
+    from botocore.exceptions import ClientError
+
+    excluded = excluded or set()
+    if _WORKING_BEDROCK_MODEL and _WORKING_BEDROCK_MODEL not in excluded:
+        return _WORKING_BEDROCK_MODEL
+
+    tried = []
+    for model in _bedrock_model_candidates():
+        if model in excluded:
+            continue
+        try:
+            client.converse(
+                modelId=model,
+                messages=[{"role": "user", "content": [{"text": "ping"}]}],
+                inferenceConfig={"maxTokens": 5},
+            )
+            _WORKING_BEDROCK_MODEL = model
+            return model
+        except ClientError as e:
+            code = e.response.get("Error", {}).get("Code", "Unknown")
+            tried.append(f"{model} ({code})")
+
+    raise RuntimeError("No usable Bedrock model available. Tried: " + ", ".join(tried))
+
+
+def _bedrock_converse_with_fallback(
+    client,
+    messages: list,
+    system: list,
+    tool_config: dict,
+    excluded: set,
+) -> tuple[dict, str]:
+    """Invoke Bedrock Converse with automatic fallback across candidate models."""
+    global _WORKING_BEDROCK_MODEL
+    from botocore.exceptions import ClientError
+
+    tried_errors = []
+    while True:
+        try:
+            model = _resolve_bedrock_model(client, excluded=excluded)
+        except RuntimeError as err:
+            if tried_errors:
+                raise RuntimeError(
+                    f"{err}; turn errors: {', '.join(tried_errors)}"
+                ) from err
+            raise
+
+        try:
+            response = client.converse(
+                modelId=model,
+                messages=messages,
+                system=system,
+                toolConfig=tool_config,
+                inferenceConfig={"maxTokens": 4096},
+            )
+            return response, model
+        except ClientError as e:
+            code = e.response.get("Error", {}).get("Code", "Unknown")
+            excluded.add(model)
+            if _WORKING_BEDROCK_MODEL == model:
+                _WORKING_BEDROCK_MODEL = None
+            tried_errors.append(f"{model} ({code})")
+
+
+def _run_bedrock_converse_agent(user_message: str) -> str:
+    """Run the agent loop via the Amazon Bedrock Converse API."""
+    import boto3
+
+    region = os.environ.get("AWS_REGION", "us-east-2")
+    client = boto3.client("bedrock-runtime", region_name=region)
+
+    excluded_models: set = set()
+    system = [{"text": SYSTEM_PROMPT}]
+    tool_config = _bedrock_tool_config()
+    messages = [{"role": "user", "content": [{"text": user_message}]}]
+
+    max_iterations = 10
+    for _ in range(max_iterations):
+        response, _ = _bedrock_converse_with_fallback(
+            client=client,
+            messages=messages,
+            system=system,
+            toolConfig=tool_config,
+            excluded=excluded_models,
+        )
+
+        out_message = response["output"]["message"]
+        messages.append(out_message)
+
+        if response.get("stopReason") != "tool_use":
+            return "".join(
+                block["text"] for block in out_message["content"] if "text" in block
+            )
+
+        tool_results = []
+        for block in out_message["content"]:
+            if "toolUse" in block:
+                tu = block["toolUse"]
+                result = _handle_tool_call(tu["name"], tu["input"])
+                tool_results.append(
+                    {
+                        "toolResult": {
+                            "toolUseId": tu["toolUseId"],
+                            "content": [{"text": result}],
+                        }
+                    }
+                )
+        messages.append({"role": "user", "content": tool_results})
+
+    return "I apologize, but I was unable to complete your request. Please try again."
+
+
+def run_agent(user_message: str) -> str:
+    """Run the Claude / Gemini / Bedrock / Azure OpenAI agent loop with database tools.
+
+    Sends the user message to the configured provider, handles tool-use calls,
+    and returns the final text response.
     """
     if AI_PROVIDER == "azure":
         return _run_azure_agent(user_message)
 
     if AI_PROVIDER in ("gemini", "google"):
         return _run_vertex_gemini_agent(user_message)
+
+    if AI_PROVIDER == "bedrock":
+        return _run_bedrock_converse_agent(user_message)
 
     client, model = _build_client_and_model()
 
