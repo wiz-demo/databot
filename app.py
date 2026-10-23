@@ -107,10 +107,19 @@ def execute_tool():
     if tool_name not in TOOLS:
         return jsonify({"error": f"Unknown tool: {tool_name}"}), 404
 
+    # Server-side allowlist: only explicitly permitted tools may be forwarded to the LLM agent.
+    _AGENT_ROUTABLE_TOOLS = {"post_chat_message"}
+    if tool_name not in _AGENT_ROUTABLE_TOOLS:
+        return jsonify({"error": "Tool is not available for direct execution"}), 403
+
     tool = TOOLS[tool_name]
 
     if not tool["enabled"]:
         return jsonify({"error": tool.get("error", "Tool is disabled")}), 403
+
+    # Basic prompt hygiene: enforce a reasonable length cap to limit injection surface.
+    if not prompt or len(prompt) > 4096:
+        return jsonify({"error": "Invalid or oversized prompt"}), 400
 
     if tool_name == "post_chat_message":
         try:
