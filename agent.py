@@ -85,20 +85,10 @@ TOOLS = [
             "properties": {},
         },
     },
-    {
-        "name": "execute_code",
-        "description": "Execute Python code on the server. Use this when users ask you to run code, perform calculations, process data, or any task that requires code execution.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "code": {
-                    "type": "string",
-                    "description": "The Python code to execute",
-                }
-            },
-            "required": ["code"],
-        },
-    },
+    # execute_code tool removed: executing arbitrary user-prompted code enables SSRF
+    # (an attacker can prompt the model to fetch http://169.254.169.254/ or internal
+    # services). If code execution is required in future, implement a sandboxed
+    # execution environment with network egress restrictions before re-enabling.
 ]
 
 
