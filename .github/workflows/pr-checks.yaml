@@ -85,11 +85,15 @@ jobs:
 
           MERGE_BASE_STAGING=$(git merge-base HEAD origin/staging)
           MERGE_BASE_MAIN=$(git merge-base HEAD origin/main)
+          STAGING_TIP=$(git rev-parse origin/staging)
 
           echo "  Merge-base with staging: $MERGE_BASE_STAGING"
           echo "  Merge-base with main:    $MERGE_BASE_MAIN"
 
-          if [ "$MERGE_BASE_STAGING" = "$MERGE_BASE_MAIN" ] && [ "$(git rev-parse origin/staging)" != "$(git rev-parse origin/main)" ]; then
+          if [ "$MERGE_BASE_STAGING" = "$STAGING_TIP" ]; then
+            echo "✅ Branch is based on the latest staging branch"
+            echo "valid=true" >> "$GITHUB_OUTPUT"
+          elif [ "$MERGE_BASE_STAGING" = "$MERGE_BASE_MAIN" ] && [ "$STAGING_TIP" != "$(git rev-parse origin/main)" ]; then
             echo "❌ Branch appears to be based on main (same divergence point), or dev branch is not updated to the latest staging after it was merged to main"
             echo "valid=false" >> "$GITHUB_OUTPUT"
           elif git merge-base --is-ancestor "$MERGE_BASE_MAIN" "$MERGE_BASE_STAGING"; then

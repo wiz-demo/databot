@@ -36,8 +36,11 @@ jobs:
             --secret="wizwasher-janitor-app-details-key" \
             --project="$SECRETS_PROJECT")
 
-          WIZWASHERS_APP_ID=$(echo "$APP_DETAILS_JSON" | jq -r '.appId')
-          WIZWASHERS_APP_PRIVATE_KEY=$(echo "$APP_KEY_JSON" | jq -r '.private_key')
+          WIZWASHERS_APP_ID=$(echo "$APP_DETAILS_JSON" | jq -r 'if type == "object" then .appId else . end' 2>/dev/null || echo "$APP_DETAILS_JSON" | tr -d '[:space:]')
+          WIZWASHERS_APP_PRIVATE_KEY=$(echo "$APP_KEY_JSON" | jq -r 'if type == "object" then .private_key else empty end' 2>/dev/null || true)
+          if [ -z "$WIZWASHERS_APP_PRIVATE_KEY" ]; then
+            WIZWASHERS_APP_PRIVATE_KEY="$APP_KEY_JSON"
+          fi
 
           echo "::add-mask::$WIZWASHERS_APP_ID"
           while IFS= read -r line; do
@@ -179,8 +182,11 @@ jobs:
             --secret="wizwasher-janitor-app-details-key" \
             --project="$SECRETS_PROJECT")
 
-          WIZWASHERS_APP_ID=$(echo "$APP_DETAILS_JSON" | jq -r '.appId')
-          WIZWASHERS_APP_PRIVATE_KEY=$(echo "$APP_KEY_JSON" | jq -r '.private_key')
+          WIZWASHERS_APP_ID=$(echo "$APP_DETAILS_JSON" | jq -r 'if type == "object" then .appId else . end' 2>/dev/null || echo "$APP_DETAILS_JSON" | tr -d '[:space:]')
+          WIZWASHERS_APP_PRIVATE_KEY=$(echo "$APP_KEY_JSON" | jq -r 'if type == "object" then .private_key else empty end' 2>/dev/null || true)
+          if [ -z "$WIZWASHERS_APP_PRIVATE_KEY" ]; then
+            WIZWASHERS_APP_PRIVATE_KEY="$APP_KEY_JSON"
+          fi
 
           echo "::add-mask::$WIZWASHERS_APP_ID"
           while IFS= read -r line; do
