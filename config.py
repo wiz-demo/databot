@@ -39,3 +39,8 @@ STRIPE_LIVE_KEY = os.environ.get(
     "sk_live_51NzQjK2eZvKYlo2C0U8",
 )
 
+# Bearer token that clients must supply to access protected API endpoints.
+# Set the API_BEARER_TOKEN environment variable to a strong, random secret.
+# If unset, all authenticated requests are rejected (fail-closed).
+API_BEARER_TOKEN = os.getenv("API_BEARER_TOKEN")
+
