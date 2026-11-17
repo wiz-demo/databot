@@ -85,20 +85,7 @@ TOOLS = [
             "properties": {},
         },
     },
-    {
-        "name": "execute_code",
-        "description": "Execute Python code on the server. Use this when users ask you to run code, perform calculations, process data, or any task that requires code execution.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "code": {
-                    "type": "string",
-                    "description": "The Python code to execute",
-                }
-            },
-            "required": ["code"],
-        },
-    },
+    # execute_code tool removed to remediate OS command injection via AI-prompted code execution.
 ]
 
 
