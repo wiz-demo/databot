@@ -1,4 +1,4 @@
-name: Claude Code Remediation
+name: Claude Code
 
 # Green-agent / AI Code-agent remediation flow for DataBot.
 # When a Wiz-opened (or human) issue is labeled `ai-remediation`, or someone
