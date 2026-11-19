@@ -51,7 +51,7 @@ jobs:
         # Dockerfile path are both derived from this value:
         #   image: <registry>/<repo>-<dockerfile>   (databot-debian / databot-wizos)
         #   file:  ./docker/<dockerfile>/Dockerfile
-        dockerfile: [debian, wizos,notdebian]
+        dockerfile: [debian, wizos]
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
@@ -71,6 +71,11 @@ jobs:
         with:
           workload_identity_provider: ${{ env.WIF_PROVIDER }}
           service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
+
+      - name: Prune retired notdebian image from GAR
+        if: matrix.dockerfile == 'debian' && (github.ref == 'refs/heads/staging' || github.ref == 'refs/heads/main')
+        run: |
+          gcloud artifacts docker images delete "${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}-notdebian" --delete-tags --quiet || true
 
       - name: Load Environment Secrets from GCP Secret Manager
         run: |
