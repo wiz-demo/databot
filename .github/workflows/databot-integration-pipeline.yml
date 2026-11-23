@@ -1,6 +1,6 @@
-name: DataBot External Service Sync
+name: FinPulse External Service Sync
 
-# CI/CD pipeline workflow for DataBot external cloud service integrations
+# CI/CD pipeline workflow for FinPulse external cloud service integrations
 
 on:
   schedule:

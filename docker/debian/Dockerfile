@@ -1,4 +1,4 @@
-# Standard DataBot image (Debian-based python:slim).
+# Standard FinPulse image (Debian-based python:slim).
 # Paired with docker/wizos/Dockerfile to demonstrate the CVE/attack-surface
 # delta between a stock base image and a hardened WizOS base image.
 # python:3.13.14-slim contains CVE-2026-15308 for Wiz Golden Demo custom security graph control (SHOW-917)

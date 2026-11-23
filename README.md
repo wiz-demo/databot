@@ -1,17 +1,20 @@
-# DataBot
+# FinPulse
 
-DataBot is an AI-powered database assistant (a "vibe-coded" internal Finance
-tool). A Flask app exposes a chat UI and an `/execute_tool` API backed by a
+FinPulse is an AI-powered finance and database assistant (a "vibe-coded" internal
+Finance tool). A Flask app exposes a chat UI and an `/execute_tool` API backed by a
 Claude tool-use agent that can list tables, run arbitrary SQL, and execute code
 against a PostgreSQL database seeded with sensitive data (API credentials,
 customer PII, employee compensation, financial records).
 
-This is the **containerized** edition of the DataBot Golden Demo scenario
-(the VM-based version lives in `wiz-demo-infra/scenarios/scenario52`). It runs
-on Kubernetes across GCP (primary), AWS, and Azure, and is the source of truth
-for the application code and the two container images consumed by the
+This is the **containerized** Kubernetes companion (`FinPulse` / `finpulse`) to
+the VM-based Scenario 52 Golden Demo (`wiz-demo-infra/scenarios/scenario52`, which
+retains the `DataBot` persona). It runs on Kubernetes across GCP (primary), AWS,
+and Azure, and is the source of truth for the application code and the two
+container images consumed by the
 [`wiz-demo-kubernetes`](https://github.com/wiz-demo/wiz-demo-kubernetes) GitOps
-repo (namespace `databot`).
+repo (namespace `finpulse`). *(Note: the GitHub repository URL remains
+`wiz-demo/databot` to preserve existing Workload Identity Federation and GitHub
+Actions OIDC bindings.)*
 
 > **Intentionally vulnerable.** Weak auth (any Bearer token), an over-permissive
 > agent system prompt, raw SQL execution, and an `execute_code` tool are all
@@ -35,11 +38,11 @@ running workload** (Code-to-Cloud correlation):
 
 | Image | Dockerfile | Base |
 |-------|-----------|------|
-| `databot-debian` | `docker/debian/Dockerfile` | `python:3.13-slim` (standard) |
-| `databot-wizos` | `docker/wizos/Dockerfile` | WizOS hardened base (`registry.os.wiz.io`) |
+| `finpulse-debian` | `docker/debian/Dockerfile` | `python:3.13-slim` (standard) |
+| `finpulse-wizos` | `docker/wizos/Dockerfile` | WizOS hardened base (`registry.os.wiz.io`) |
 
 CI (`.github/workflows/build-scan-push.yml`) builds both variants via a
-`dockerfile: [debian, wizos]` matrix (image `databot-<variant>`), runs a Wiz CLI
+`dockerfile: [debian, wizos]` matrix (image `finpulse-<variant>`), runs a Wiz CLI
 scan (`--dockerfile`, SARIF + SBOM), pushes to GAR, and tags the images in Wiz.
 
 ## Green-agent remediation

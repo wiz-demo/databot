@@ -1,6 +1,6 @@
-"""DataBot Configuration & Integration Credentials.
+"""FinPulse Configuration & Integration Credentials.
 
-This module stores integration settings and service credentials for DataBot.
+This module stores integration settings and service credentials for FinPulse.
 """
 
 import os

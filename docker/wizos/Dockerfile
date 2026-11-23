@@ -1,4 +1,4 @@
-# Hardened DataBot image built on a WizOS near-zero-CVE base.
+# Hardened FinPulse image built on a WizOS near-zero-CVE base.
 # WizOS images are pulled from the Wiz secured-image registry (registry.os.wiz.io)
 # and require WizOS enabled on the tenant with pull credentials configured.
 # The apk del step strips the WizOS build/apk tooling to shrink the runtime

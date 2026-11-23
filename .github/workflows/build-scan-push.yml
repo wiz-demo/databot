@@ -35,7 +35,7 @@ env:
     (github.ref == 'refs/heads/staging' && 'stgadvanced') ||
     'stgadvanced' }}
   WIZ_ENV: "demo"
-  IMAGE_NAME: "${{ github.event.repository.name }}"
+  IMAGE_NAME: "finpulse"
   IMAGE_REGISTRY: ${{ github.ref == 'refs/heads/main' && vars.GAR_PRODUCTION_REGISTRY || vars.GAR_STAGING_REGISTRY }}
   REGISTRY_REGION: ${{ github.ref == 'refs/heads/main' && vars.GAR_PRODUCTION_REGION || vars.GAR_STAGING_REGION }}
   WIF_PROVIDER: ${{ github.ref == 'refs/heads/main' && vars.GAR_PRODUCTION_WIF_PROVIDER || vars.GAR_STAGING_WIF_PROVIDER }}
@@ -49,7 +49,7 @@ jobs:
       matrix:
         # Standard (Debian) and hardened (WizOS) variants. The image name and its
         # Dockerfile path are both derived from this value:
-        #   image: <registry>/<repo>-<dockerfile>   (databot-debian / databot-wizos)
+        #   image: <registry>/finpulse-<dockerfile>   (finpulse-debian / finpulse-wizos)
         #   file:  ./docker/<dockerfile>/Dockerfile
         dockerfile: [debian, wizos]
     steps:

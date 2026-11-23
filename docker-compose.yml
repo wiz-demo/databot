@@ -15,7 +15,7 @@ services:
       timeout: 5s
       retries: 10
 
-  databot:
+  finpulse:
     build:
       context: .
       dockerfile: docker/debian/Dockerfile
