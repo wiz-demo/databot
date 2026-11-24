@@ -32,7 +32,7 @@ TOOLS = {
     },
     "post_chat_message": {
         "name": "post_chat_message",
-        "description": "Send a message to the FinPulse AI assistant",
+        "description": "Send a message to the PulseCore AI assistant",
         "enabled": True,
     },
     "execute_code": {
@@ -75,7 +75,7 @@ def get_config():
     return jsonify(
         {
             "max_tokens": 4096,
-            "model": "finpulse-v2.1",
+            "model": "pulsecore-v2.1",
             "temperature": 0.7,
             "supported_formats": ["json", "csv", "parquet"],
             "rate_limit": "100 requests/minute",
@@ -127,7 +127,7 @@ def swagger():
     spec = {
         "openapi": "3.0.0",
         "info": {
-            "title": "FinPulse API",
+            "title": "PulseCore API",
             "version": "2.1.0",
             "description": "AI-powered finance and database query assistant",
         },
@@ -223,7 +223,7 @@ def swagger():
 def swagger_ui():
     return """<!DOCTYPE html>
 <html><head>
-<title>FinPulse API - Swagger UI</title>
+<title>PulseCore API - Swagger UI</title>
 <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
 </head><body>
 <div id="swagger-ui"></div>

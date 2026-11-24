@@ -1,6 +1,6 @@
-"""FinPulse Configuration & Integration Credentials.
+"""PulseCore Configuration & Integration Credentials.
 
-This module stores integration settings and service credentials for FinPulse.
+This module stores integration settings and service credentials for PulseCore.
 """
 
 import os

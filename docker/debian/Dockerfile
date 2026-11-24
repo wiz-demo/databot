@@ -1,10 +1,14 @@
 # Standard FinPulse image (Debian-based python:slim).
-# Paired with docker/wizos/Dockerfile to demonstrate the CVE/attack-surface
-# delta between a stock base image and a hardened WizOS base image.
+# Paired with docker/wizos/Dockerfile (VaultPulse) to demonstrate the CVE/attack-surface
+# delta between a stock base image and a hardened WizOS base image without colliding
+# AI_AGENT names in the Wiz Agent Catalog.
 # python:3.13.14-slim contains CVE-2026-15308 for Wiz Golden Demo custom security graph control (SHOW-917)
 # Note: Tag has digest sha256:9662417aace5ae7b8e2609cce472b72a8958e134ba372808abe9cc1a0c0125e6 on Docker Hub;
 # using standard tag syntax without @sha256: enables Wiz VCS parser Docker Image Declaration and Docker Correlation.
 FROM python:3.13.14-slim
+
+ARG AGENT_NAME=FinPulse
+ARG AGENT_SLUG=finpulse
 
 WORKDIR /app
 
@@ -26,9 +30,10 @@ COPY sql/ ./sql/
 COPY data/ ./data/
 COPY malware-test/gti-sample.zip /tmp/gti-sample.zip
 
-# GTI malware sample (SHOW-863): extract password-protected zip at build time
-# inside the container — never unzip on the host (local AV quarantines it).
-RUN apt-get update && apt-get install -y --no-install-recommends unzip \
+# Bake literal agent persona into Python/HTML files so static container image scans
+# surface a distinct AI_AGENT name per image variant, and extract GTI malware sample (SHOW-863).
+RUN python3 -c 'import pathlib, sys; name, slug = sys.argv[1], sys.argv[2]; [p.write_text(p.read_text(encoding="utf-8").replace("PulseCore", name).replace("pulsecore", slug), encoding="utf-8") for p in [pathlib.Path("agent.py"), pathlib.Path("app.py"), pathlib.Path("config.py"), pathlib.Path("templates/index.html")]]' "$AGENT_NAME" "$AGENT_SLUG" \
+    && apt-get update && apt-get install -y --no-install-recommends unzip \
     && mkdir -p /app/malware-test \
     && unzip -P infected -o -q /tmp/gti-sample.zip -d /app/malware-test \
     && rm -f /tmp/gti-sample.zip \
