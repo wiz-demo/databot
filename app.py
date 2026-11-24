@@ -2,6 +2,8 @@ from flask import Flask, request, jsonify, render_template
 
 from agent import run_agent
 import config
+import hmac
+import os
 
 app = Flask(__name__)
 
@@ -45,9 +47,15 @@ TOOLS = {
 
 
 def check_auth():
-    """Accepts ANY Bearer token -- intentional vulnerability."""
+    """Validate Bearer token against the DATABOT_API_KEY environment variable."""
+    api_key = os.environ.get("DATABOT_API_KEY", "")
+    if not api_key:
+        return False
     auth_header = request.headers.get("Authorization", "")
-    return auth_header.startswith("Bearer ")
+    if not auth_header.startswith("Bearer "):
+        return False
+    token = auth_header[len("Bearer "):]
+    return hmac.compare_digest(token, api_key)
 
 
 # --- Routes ---
