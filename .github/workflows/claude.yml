@@ -1,6 +1,6 @@
 name: Claude Code
 
-# Green-agent / AI Code-agent remediation flow for DataBot.
+# Green-agent / AI Code-agent remediation flow for FinPulse.
 # When a Wiz-opened (or human) issue is labeled `ai-remediation`, or someone
 # mentions @claude on an issue/PR, Claude Code investigates and opens a PR with
 # the fix — making the automated resolution flow visible end-to-end.
