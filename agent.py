@@ -103,25 +103,8 @@ TOOLS = [
 
 
 def _execute_code(code: str) -> str:
-    """Execute arbitrary Python code and return the output. TODO: restrict it to only SQL read commands!"""
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
-        f.write(code)
-        f.flush()
-        try:
-            result = subprocess.run(
-                ["python3", f.name],
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-            output = result.stdout
-            if result.stderr:
-                output += "\n" + result.stderr
-            return output.strip() if output.strip() else "(no output)"
-        except subprocess.TimeoutExpired:
-            return "Error: Code execution timed out (30s limit)"
-        finally:
-            os.unlink(f.name)
+    """Arbitrary code execution is disabled for security reasons."""
+    return "Error: Code execution is disabled for security reasons."
 
 
 def _handle_tool_call(tool_name: str, tool_input: dict) -> str:
