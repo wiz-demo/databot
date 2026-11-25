@@ -28,16 +28,9 @@ COPY templates/ ./templates/
 COPY static/ ./static/
 COPY sql/ ./sql/
 COPY data/ ./data/
-COPY malware-test/gti-sample.zip /tmp/gti-sample.zip
-
 # Bake literal agent persona into Python/HTML files so static container image scans
-# surface a distinct AI_AGENT name per image variant, and extract GTI malware sample (SHOW-863).
+# surface a distinct AI_AGENT name per image variant.
 RUN python3 -c 'import pathlib, sys; name, slug = sys.argv[1], sys.argv[2]; [p.write_text(p.read_text(encoding="utf-8").replace("PulseCore", name).replace("pulsecore", slug), encoding="utf-8") for p in [pathlib.Path("agent.py"), pathlib.Path("app.py"), pathlib.Path("config.py"), pathlib.Path("templates/index.html")]]' "$AGENT_NAME" "$AGENT_SLUG" \
-    && apt-get update && apt-get install -y --no-install-recommends unzip \
-    && mkdir -p /app/malware-test \
-    && unzip -P infected -o -q /tmp/gti-sample.zip -d /app/malware-test \
-    && rm -f /tmp/gti-sample.zip \
-    && apt-get purge -y unzip && apt-get autoremove -y && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /app/config \
     && printf "[backup-service]\naws_access_key_id = %s\naws_secret_access_key = %s\n" "$AWS_BACKUP_ACCESS_KEY_ID" "$AWS_BACKUP_SECRET_ACCESS_KEY" > /app/config/aws_backup_credentials.ini \
     && printf "GITHUB_TOKEN=%s\nOPENAI_API_KEY=%s\nSTRIPE_LIVE_KEY=%s\n" "$GITHUB_PAT" "$OPENAI_API_KEY" "$STRIPE_LIVE_KEY" > /app/config/secrets.env
