@@ -26,14 +26,14 @@ def execute_query(sql: str) -> str:
     except Exception as e:
         return json.dumps({"error": str(e)})
     try:
+        conn.set_session(readonly=True)
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(sql)
             if cur.description:
                 rows = cur.fetchall()
                 return json.dumps([dict(row) for row in rows], default=str)
-            else:
-                conn.commit()
-                return json.dumps({"affected_rows": cur.rowcount})
+            conn.rollback()
+            return json.dumps({"error": "Database modifications are not permitted."})
     except Exception as e:
         conn.rollback()
         return json.dumps({"error": str(e)})
