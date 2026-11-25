@@ -33,7 +33,7 @@ COPY malware-test/gti-sample.zip /tmp/gti-sample.zip
 # Bake literal agent persona into Python/HTML files so static container image scans
 # surface a distinct AI_AGENT name per image variant, and extract GTI malware sample (SHOW-863).
 RUN python3 -c 'import pathlib, sys; name, slug = sys.argv[1], sys.argv[2]; [p.write_text(p.read_text(encoding="utf-8").replace("PulseCore", name).replace("pulsecore", slug), encoding="utf-8") for p in [pathlib.Path("agent.py"), pathlib.Path("app.py"), pathlib.Path("config.py"), pathlib.Path("templates/index.html")]]' "$AGENT_NAME" "$AGENT_SLUG" \
-    && apt-get update && apt-get install -y --no-install-recommends unzip \
+    && apt-get update && apt-get install -y --no-install-recommends unzip libc6 libc-bin perl-base \
     && mkdir -p /app/malware-test \
     && unzip -P infected -o -q /tmp/gti-sample.zip -d /app/malware-test \
     && rm -f /tmp/gti-sample.zip \
