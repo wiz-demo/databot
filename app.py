@@ -45,9 +45,16 @@ TOOLS = {
 
 
 def check_auth():
-    """Accepts ANY Bearer token -- intentional vulnerability."""
+    """Validates that a valid Bearer token is provided."""
+    import hmac
+    import os
+
     auth_header = request.headers.get("Authorization", "")
-    return auth_header.startswith("Bearer ")
+    if not auth_header.startswith("Bearer "):
+        return False
+    token = auth_header.split(" ", 1)[1].strip()
+    expected_token = os.environ.get("API_BEARER_TOKEN") or os.environ.get("API_TOKEN")
+    return bool(expected_token and hmac.compare_digest(token, expected_token))
 
 
 # --- Routes ---
